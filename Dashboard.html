@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ULS Cooperative - Tableau de Bord</title>
+
+  <!-- Fonts & icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root{
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --text: #0f1724;
+      --primary: #7c3aed;
+      --primary-2: #5b21b6;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --border: #e6e9ef;
+      --shadow-sm: 0 6px 16px rgba(20,20,40,0.06);
+      --shadow-lg: 0 20px 40px rgba(20,20,40,0.08);
+      --radius: 12px;
+    }
+    body.dark {
+      --bg: #0b1220;
+      --card: #0f1724;
+      --muted: #94a3b8;
+      --text: #e6eef7;
+      --border: #1f2937;
+      --shadow-sm: 0 6px 16px rgba(2,6,23,0.6);
+      --shadow-lg: 0 20px 40px rgba(2,6,23,0.65);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background:var(--bg);
+      color:var(--text);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      line-height:1.45;
+    }
+
+    /* OVERLAY (for mobile menu) */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 220ms ease;
+      z-index: 1090;
+    }
+    body.menu-open #overlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Layout */
+    .container { display:flex; min-height:100vh; width:100%; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 300px;
+      min-width: 260px;
+      background: linear-gradient(180deg, rgba(124,58,237,0.03), rgba(91,33,182,0.02));
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      border-right: 1px solid rgba(0,0,0,0.03);
+      display:flex; flex-direction:column; gap:16px;
+      position: fixed; left:0; top:0; height:100vh; z-index:1100;
+      transition: transform 260ms cubic-bezier(.2,.9,.3,1);
+    }
+    .sidebar.hidden { transform: translateX(-112%); }
+    /* On mobile when open we want solid white background for clarity */
+    @media (max-width:900px) {
+      .sidebar { background: var(--card); box-shadow: 6px 0 30px rgba(0,0,0,0.25); border-radius: 0 16px 16px 0; }
+    }
+
+    .logo { display:flex; gap:12px; align-items:center; padding-bottom:8px; border-bottom:1px solid var(--border); }
+    .logo-icon { width:52px; height:52px; border-radius:12px; background: linear-gradient(135deg,var(--primary),var(--primary-2)); display:flex; align-items:center; justify-content:center; color:white; font-size:1.2rem; box-shadow: 0 10px 30px rgba(124,58,237,0.12); }
+    .logo-text { font-size:1.25rem; font-weight:700; color:var(--primary-2); }
+
+    .sidebar-hero { background: linear-gradient(90deg, rgba(124,58,237,0.03), rgba(59,130,246,0.02)); border-radius:12px; padding:10px; border:1px solid rgba(124,58,237,0.04); display:flex; justify-content:space-between; align-items:center; }
+
+    .nav-links { display:flex; flex-direction:column; gap:8px; padding:0; margin:8px 0 0 0; list-style:none; }
+    .nav-links a { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; text-decoration:none; color:var(--text); font-weight:600; transition: all 160ms; border:1px solid transparent; }
+    .nav-links a .i { width:38px; height:38px; border-radius:8px; display:flex; align-items:center; justify-content:center; background: rgba(15,23,42,0.03); color:var(--primary-2); font-size:1.05rem; }
+    .nav-links a:hover { transform: translateY(-3px); box-shadow: var(--shadow-sm); background: linear-gradient(90deg, rgba(124,58,237,0.03), rgba(59,130,246,0.02)); border-color: rgba(124,58,237,0.04); }
+    .nav-links a.active { background: linear-gradient(90deg, var(--primary), var(--primary-2)); color:white; box-shadow: 0 10px 30px rgba(124,58,237,0.12); }
+    .nav-links a.active .i { background: transparent; color: white; }
+
+    .sidebar-footer { margin-top:auto; padding-top:12px; border-top:1px dashed rgba(124,58,237,0.04); display:flex; align-items:center; gap:12px; }
+    .user-avatar { width:46px; height:46px; border-radius:12px; background: linear-gradient(135deg,var(--primary),var(--primary-2)); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:1rem; box-shadow: 0 10px 20px rgba(124,58,237,0.12); }
+
+    /* MAIN */
+    .main { margin-left:300px; padding:20px; flex:1; transition: margin-left 260ms cubic-bezier(.2,.9,.3,1); min-height:100vh; }
+    .sidebar.hidden + .main { margin-left:24px; }
+
+    .header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; }
+    .btn { padding:10px 14px; border-radius:10px; border:none; font-weight:700; cursor:pointer; background:var(--card); color:var(--text); box-shadow:var(--shadow-sm); }
+    .btn-primary { background: linear-gradient(90deg,var(--primary),var(--primary-2)); color:white; box-shadow: 0 10px 30px rgba(124,58,237,0.12); }
+    .btn-outline { background: transparent; border:1px solid var(--border); }
+
+    .hero { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color:white; padding:22px; border-radius:14px; box-shadow:var(--shadow-lg); margin-bottom:18px; }
+    .stats-grid { display:grid; grid-template-columns: repeat(4,1fr); gap:14px; margin-bottom:18px; }
+    .stat-card { background:var(--card); border-radius:12px; padding:14px; box-shadow:var(--shadow-sm); border:1px solid var(--border); display:flex; gap:12px; align-items:center; }
+    .charts-container { display:grid; grid-template-columns: 2fr 1fr; gap:14px; margin-bottom:18px; }
+    .chart-card { background:var(--card); border-radius:12px; padding:14px; box-shadow:var(--shadow-sm); border:1px solid var(--border); }
+    .chart-card canvas { width:100% !important; height:260px !important; display:block; }
+
+    .table-container { overflow-x:auto; border-radius:12px; box-shadow:var(--shadow-sm); border:1px solid var(--border); margin-bottom:18px; background:var(--card); }
+    table { width:100%; border-collapse: collapse; }
+    thead th { padding:12px 14px; background: linear-gradient(90deg,var(--primary),var(--primary-2)); color:white; position: sticky; top:0; }
+    tbody td { padding:12px 14px; }
+
+    /* Notification Styles */
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 10px;
+        box-shadow: var(--shadow-lg);
+        z-index: 2000;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transform: translateX(120%);
+        transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        max-width: 320px;
+    }
+
+    .notification.active {
+        transform: translateX(0);
+    }
+
+    .notification.success { background: #10b981; }
+    .notification.info { background: #3b82f6; }
+    .notification.warning { background: #f59e0b; }
+
+    .notification-icon {
+        font-size: 1.2rem;
+    }
+
+    .notification-content {
+        flex: 1;
+    }
+
+    .notification-title {
+        font-weight: 700;
+        margin: 0 0 4px 0;
+    }
+
+    .notification-message {
+        margin: 0;
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+
+    .notification-close {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+    }
+
+    .notification-close:hover {
+        background: rgba(255,255,255,0.2);
+    }
+
+    /* responsive */
+    @media (max-width:1100px) {
+      .stats-grid{ grid-template-columns: repeat(2,1fr); }
+      .charts-container{ grid-template-columns: 1fr; }
+      .chart-card canvas{ height:220px !important; }
+    }
+    @media (max-width:900px) {
+      .sidebar { transform: translateX(-112%); } /* hidden by default */
+      .sidebar.hidden { transform: translateX(-112%); }
+      .main{ margin-left:24px; padding:16px; }
+      .chart-card canvas { height:200px !important; }
+      .menu-toggle { 
+        display:block; 
+        position:fixed; 
+        left:16px; 
+        top:16px; 
+        z-index:1205; 
+        background: linear-gradient(90deg,var(--primary),var(--primary-2)); 
+        color:white; 
+        border:none; 
+        padding:10px 12px; 
+        border-radius:10px; 
+        box-shadow:var(--shadow-sm);
+      }
+    }
+    @media (max-width:480px) {
+      .sidebar { width:86%; max-width:360px; }
+      .main{ padding:12px; margin-left:12px; }
+      .chart-card canvas{ height:180px !important; }
+      .stats-grid{ grid-template-columns: 1fr; }
+      .notification {
+        right: 10px;
+        left: 10px;
+        max-width: none;
+      }
+    }
+
+    /* small helpers */
+    .menu-toggle { display:none; }
+    .form-control { width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); }
+    .result-box { display:none; padding:12px; border-radius:10px; background: rgba(124,58,237,0.06); margin-top:12px; }
+    .result-box.active { display:block; }
+    .card { background:var(--card); border-radius:12px; padding:14px; box-shadow:var(--shadow-sm); border:1px solid var(--border); }
+    .badge-success { background:#10b981; color:white; padding:4px 8px; border-radius:6px; font-size:0.8rem; }
+    .badge-warning { background:#f59e0b; color:white; padding:4px 8px; border-radius:6px; font-size:0.8rem; }
+    .badge-danger { background:#ef4444; color:white; padding:4px 8px; border-radius:6px; font-size:0.8rem; }
+  </style>
+</head>
+<body>
+  <!-- Mobile menu toggle - THIS IS YOUR EXISTING BUTTON, IT SHOULD WORK -->
+  <button id="menuToggle" class="menu-toggle" aria-label="Ouvrir le menu"><i class="fas fa-bars"></i></button>
+
+  <!-- Overlay for mobile menu -->
+  <div id="overlay" aria-hidden="true"></div>
+
+  <!-- Notification Container -->
+  <div id="notification" class="notification">
+      <div class="notification-icon">
+          <i class="fas fa-check-circle"></i>
+      </div>
+      <div class="notification-content">
+          <div class="notification-title" id="notificationTitle">Succès</div>
+          <div class="notification-message" id="notificationMessage">Opération effectuée avec succès</div>
+      </div>
+      <button class="notification-close" id="notificationClose">
+          <i class="fas fa-times"></i>
+      </button>
+  </div>
+
+  <div class="container">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar hidden" aria-label="Navigation principale">
+      <div class="logo">
+        <div class="logo-icon"><i class="fas fa-hand-holding-usd"></i></div>
+        <div class="logo-text">ULS Cooperative</div>
+      </div>
+
+      <div class="sidebar-hero" aria-hidden="true">
+        <div>
+          <div style="font-weight:800; font-size:1.15rem">4.2M G</div>
+          <div style="color:var(--muted); font-size:0.85rem">Capital Prêté</div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:var(--muted); font-size:0.85rem">Clients</div>
+          <div style="font-weight:800">1,247+</div>
+        </div>
+      </div>
+
+      <ul class="nav-links" id="navLinksList">
+        <li><a href="#" class="nav-link active" data-page="dashboard"><span class="i"><i class="fas fa-chart-line"></i></span>Tableau de Bord</a></li>
+        <li><a href="#" class="nav-link" data-page="depot"><span class="i"><i class="fas fa-wallet"></i></span>Dépôts</a></li>
+        <li><a href="#" class="nav-link" data-page="pret"><span class="i"><i class="fas fa-hand-holding-usd"></i></span>Prêts</a></li>
+        <li><a href="#" class="nav-link" data-page="retrait"><span class="i"><i class="fas fa-money-bill-wave"></i></span>Retraits</a></li>
+        <li><a href="#" class="nav-link" data-page="clients"><span class="i"><i class="fas fa-users"></i></span>Clients</a></li>
+        <li><a href="#" class="nav-link" data-page="transactions"><span class="i"><i class="fas fa-file-invoice-dollar"></i></span>Transactions</a></li>
+        <li><a href="#" class="nav-link" data-page="parametres"><span class="i"><i class="fas fa-cog"></i></span>Paramètres</a></li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div class="user-avatar">AD</div>
+        <div>
+          <div style="font-weight:700">Admin ULS</div>
+          <div style="color:var(--muted); font-size:0.85rem">Administrateur Principal</div>
+        </div>
+        <div style="margin-left:auto; display:flex; gap:8px;">
+          <button class="btn" id="themeToggle" title="Basculer thème"><i class="fas fa-moon"></i></button>
+          <button class="btn" id="closeSidebar" title="Fermer le menu"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main" id="mainContent">
+      <div class="header">
+        <div>
+          <div style="color:var(--muted)">Bienvenue</div>
+          <h1 style="margin:0; font-size:1.4rem">Tableau de Bord</h1>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button class="btn btn-outline" id="exportReportBtn"><i class="fas fa-file-export"></i>&nbsp;Exporter Rapport (CSV)</button>
+          <button class="btn btn-primary" id="newOperationBtn"><i class="fas fa-plus-circle"></i>&nbsp;Nouvelle Opération</button>
+        </div>
+      </div>
+
+      <!-- ALL YOUR EXISTING CONTENT REMAINS EXACTLY THE SAME -->
+      <section id="dashboard" class="page-section">
+        <div class="hero">
+          <h1 style="margin:0 0 8px 0">Envoyez, Recevez, Gérez Votre Argent Facilement</h1>
+          <p style="margin:0">ULS Cooperative vous offre des solutions financières complètes pour réaliser vos projets. Rejoignez notre communauté de confiance.</p>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card"><div style="width:60px;height:60px;border-radius:12px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white"><i class="fas fa-users"></i></div><div><h3 style="margin:0">1,247</h3><p style="margin:6px 0 0 0;color:var(--muted)">Clients Actifs</p></div></div>
+          <div class="stat-card"><div style="width:60px;height:60px;border-radius:12px;background:#10b981;display:flex;align-items:center;justify-content:center;color:white"><i class="fas fa-wallet"></i></div><div><h3 style="margin:0">4.2M G</h3><p style="margin:6px 0 0 0;color:var(--muted)">Capital Prêté</p></div></div>
+          <div class="stat-card"><div style="width:60px;height:60px;border-radius:12px;background:#f59e0b;display:flex;align-items:center;justify-content:center;color:white"><i class="fas fa-hand-holding-usd"></i></div><div><h3 style="margin:0">856</h3><p style="margin:6px 0 0 0;color:var(--muted)">Prêts Actifs</p></div></div>
+          <div class="stat-card"><div style="width:60px;height:60px;border-radius:12px;background:#ef4444;display:flex;align-items:center;justify-content:center;color:white"><i class="fas fa-chart-line"></i></div><div><h3 style="margin:0">421K G</h3><p style="margin:6px 0 0 0;color:var(--muted)">Bénéfices Annuels</p></div></div>
+        </div>
+
+        <div class="charts-container">
+          <div class="chart-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <h3 style="margin:0">Évolution des Activités</h3>
+              <div style="color:var(--muted); font-weight:600; font-size:0.9rem">Derniers 12 mois</div>
+            </div>
+            <canvas id="activityChart"></canvas>
+          </div>
+
+          <div class="chart-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <h3 style="margin:0">Répartition des Opérations</h3>
+              <div style="color:var(--muted); font-weight:600; font-size:0.9rem">Aujourd'hui</div>
+            </div>
+            <canvas id="operationDistributionChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h3 style="margin:0">Activités Récentes</h3>
+            <button class="btn btn-outline">Voir Tout</button>
+          </div>
+          <ul style="margin-top:12px; padding:0; list-style:none">
+            <li style="display:flex; gap:12px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(0,0,0,0.03)">
+              <div style="background:#10b981; width:45px;height:45px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white"><i class="fas fa-arrow-down"></i></div>
+              <div style="flex:1"><strong>Dépôt reçu</strong><div style="color:var(--muted)">Marie Joseph - Il y a 2 heures</div></div>
+              <div style="font-weight:700; color:#10b981">+25,000 G</div>
+            </li>
+            <li style="display:flex; gap:12px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(0,0,0,0.03)">
+              <div style="background:var(--primary-2); width:45px;height:45px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white"><i class="fas fa-hand-holding-usd"></i></div>
+              <div style="flex:1"><strong>Prêt accordé</strong><div style="color:var(--muted)">Jean Pierre - Il y a 5 heures</div></div>
+              <div style="font-weight:700; color:var(--primary-2)">-50,000 G</div>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- DEPOT -->
+      <section id="depot" class="page-section" style="display:none">
+        <div class="card">
+          <h3>Nouveau Dépôt</h3>
+          <div style="margin-top:12px">
+            <div class="form-group"><label>Nom du Client</label><input class="form-control" id="depotNom" type="text" placeholder="Nom"></div>
+            <div class="form-group"><label>Prénom du Client</label><input class="form-control" id="depotPrenom" type="text" placeholder="Prénom"></div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <div style="flex:1"><label>Montant (G)</label><input class="form-control" id="montantDepot" type="number"></div>
+              <div style="width:160px"><label>Durée (années)</label><select id="dureeDepot" class="form-control"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="5">5</option></select></div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+              <button class="btn btn-outline" onclick="calcDepot()"><i class="fas fa-calculator"></i>&nbsp;Calculer</button>
+              <button class="btn btn-primary" onclick="submitDepot()"><i class="fas fa-paper-plane"></i>&nbsp;Soumettre</button>
+            </div>
+            <div id="resultDepot" class="result-box"><h4 style="margin:6px 0">Résultat</h4><div id="depotResultText"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRET -->
+      <section id="pret" class="page-section" style="display:none">
+        <div class="card">
+          <h3>Nouvelle Demande de Prêt</h3>
+          <div style="margin-top:12px">
+            <div class="form-group"><label>Nom du Client</label><input class="form-control" id="pretNom" type="text"></div>
+            <div class="form-group"><label>Prénom du Client</label><input class="form-control" id="pretPrenom" type="text"></div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <div style="flex:1"><label>Montant (G)</label><input class="form-control" id="montantPret" type="number"></div>
+              <div style="width:160px"><label>Durée (mois)</label><select id="dureePret" class="form-control"><option value="6">6</option><option value="12">12</option><option value="24">24</option><option value="36">36</option></select></div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+              <button class="btn btn-outline" onclick="calcPret()"><i class="fas fa-calculator"></i>&nbsp;Calculer</button>
+              <button class="btn btn-primary" onclick="submitPret()"><i class="fas fa-paper-plane"></i>&nbsp;Soumettre</button>
+            </div>
+            <div id="resultPret" class="result-box"><h4 style="margin:6px 0">Résultat</h4><div id="pretResultText"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RETRAIT -->
+      <section id="retrait" class="page-section" style="display:none">
+        <div class="card">
+          <h3>Nouveau Retrait</h3>
+          <div style="margin-top:12px">
+            <div class="form-group"><label>Nom du Client</label><input class="form-control" id="retraitNom" type="text"></div>
+            <div class="form-group"><label>Prénom du Client</label><input class="form-control" id="retraitPrenom" type="text"></div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <div style="flex:1"><label>Montant (G)</label><input class="form-control" id="montantRetrait" type="number"></div>
+              <div style="width:180px"><label>Motif</label><select id="motifRetrait" class="form-control"><option value="urgence">Urgence</option><option value="paiement">Paiement</option><option value="achat">Achat</option><option value="autre">Autre</option></select></div>
+            </div>
+            <div style="margin-top:12px;"><button class="btn btn-primary" onclick="submitRetrait()"><i class="fas fa-paper-plane"></i>&nbsp;Soumettre</button></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CLIENTS -->
+      <section id="clients" class="page-section" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div><div style="color:var(--muted)">Données</div><div style="font-weight:800">Gestion des Clients</div></div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <div style="position:relative;">
+              <i class="fas fa-search" style="position:absolute; left:10px; top:10px; color:var(--muted)"></i>
+              <input id="searchClient" class="form-control" type="text" placeholder="Rechercher un client..." style="padding-left:36px; width:240px;">
+            </div>
+          </div>
+        </div>
+        <div class="table-container">
+          <table id="clientsTable">
+            <thead><tr><th>Nom</th><th>Prénom</th><th>Date d'Ouverture</th><th>Type</th><th>Balance (G)</th></tr></thead>
+            <tbody id="clientsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TRANSACTIONS -->
+      <section id="transactions" class="page-section" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div><div style="color:var(--muted)">Données</div><div style="font-weight:800">Historique des Transactions</div></div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <div style="position:relative;">
+              <i class="fas fa-search" style="position:absolute; left:10px; top:10px; color:var(--muted)"></i>
+              <input id="searchTransaction" class="form-control" type="text" placeholder="Rechercher une transaction..." style="padding-left:36px; width:240px;">
+            </div>
+          </div>
+        </div>
+        <div class="table-container">
+          <table id="transactionsTable">
+            <thead><tr><th>ID</th><th>Client</th><th>Type</th><th>Montant (G)</th><th>Date</th><th>Statut</th></tr></thead>
+            <tbody id="transactionsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- PARAMETRES -->
+      <section id="parametres" class="page-section" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div><div style="color:var(--muted)">Administration</div><div style="font-weight:800">Paramètres</div></div>
+        </div>
+        <div class="card" style="margin-bottom:12px;">
+          <h3>Paramètres du Système</h3>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-top:12px;">
+            <div><label>Taux dépôt (%)</label><input class="form-control" type="number" value="5" step="0.1"></div>
+            <div><label>Taux prêt (%)</label><input class="form-control" type="number" value="8" step=0.1"></div>
+            <div><label>Frais retrait (%)</label><input class="form-control" type="number" value="0" step="0.1" disabled></div>
+            <div><label>Limite retrait (G)</label><input class="form-control" type="number" value="50000"></div>
+          </div>
+          <div style="margin-top:12px"><button class="btn btn-primary"><i class="fas fa-save"></i>&nbsp;Enregistrer</button></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal: New Operation (includes Add Client) -->
+  <div id="newOperationModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1205; align-items:center; justify-content:center;">
+    <div style="width:94%; max-width:680px; background:var(--card); border-radius:12px; padding:18px; box-shadow:var(--shadow-lg);">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0">Nouvelle Opération</h3>
+        <button class="btn" id="closeModal">&times;</button>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <div style="flex:1;">
+            <label>Type d'opération</label>
+            <select id="modalOperationType" class="form-control">
+              <option value="depot">Dépôt</option>
+              <option value="pret">Prêt</option>
+              <option value="retrait">Retrait</option>
+              <option value="remboursement">Remboursement</option>
+              <option value="add_client">Ajouter un client</option>
+            </select>
+          </div>
+
+          <div style="flex:1;">
+            <label>Client</label>
+            <select id="modalClientSelect" class="form-control">
+              <option value="">Sélectionnez un client</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="modalFields" style="margin-top:12px;">
+          <div id="modalAmountRow" style="display:flex; gap:12px;">
+            <div style="flex:1;">
+              <label>Montant (G)</label>
+              <input id="modalAmount" class="form-control" type="number" placeholder="Entrez le montant">
+            </div>
+          </div>
+
+          <div id="addClientFields" style="display:none; margin-top:12px;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:10px;">
+              <div><label>Nom</label><input id="newClientNom" class="form-control" type="text"></div>
+              <div><label>Prénom</label><input id="newClientPrenom" class="form-control" type="text"></div>
+              <div><label>Type de client</label><select id="newClientType" class="form-control"><option value="Dépôt">Dépôt</option><option value="Prêt">Prêt</option><option value="Autre">Autre</option></select></div>
+              <div><label>Balance initiale (G)</label><input id="newClientBalance" class="form-control" type="number" value="0"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
+          <button class="btn" id="cancelModal">Annuler</button>
+          <button class="btn btn-primary" id="confirmModal">Confirmer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================
+       DATA (unchanged)
+       ========================= */
+    const clients = [
+      { id: 1, nom: "Pierre", prenom: "Jean", dateOuverture: "2022-05-15", type: "Dépôt", balance: 15000 },
+      { id: 2, nom: "Joseph", prenom: "Marie", dateOuverture: "2022-06-20", type: "Dépôt", balance: 25000 },
+      { id: 3, nom: "Martin", prenom: "Sophie", dateOuverture: "2022-07-10", type: "Prêt", balance: -50000 },
+      { id: 4, nom: "Bernard", prenom: "Paul", dateOuverture: "2022-08-05", type: "Dépôt", balance: 32000 },
+      { id: 5, nom: "Thomas", prenom: "Luc", dateOuverture: "2022-09-12", type: "Prêt", balance: -30000 },
+      { id: 6, nom: "Petit", prenom: "Nadia", dateOuverture: "2022-10-18", type: "Dépôt", balance: 28000 },
+      { id: 7, nom: "Robert", prenom: "Marc", dateOuverture: "2022-11-22", type: "Dépôt", balance: 22000 },
+      { id: 8, nom: "Richard", prenom: "Eva", dateOuverture: "2022-12-30", type: "Prêt", balance: -40000 },
+      { id: 9, nom: "Durand", prenom: "Louis", dateOuverture: "2023-01-15", type: "Dépôt", balance: 21000 },
+      { id: 10, nom: "Dubois", prenom: "Claire", dateOuverture: "2023-02-20", type: "Dépôt", balance: 17000 },
+      { id: 11, nom: "Moreau", prenom: "Antoine", dateOuverture: "2023-03-10", type: "Prêt", balance: -60000 },
+      { id: 12, nom: "Laurent", prenom: "Isabelle", dateOuverture: "2023-04-05", type: "Dépôt", balance: 16000 },
+      { id: 13, nom: "Simon", prenom: "Philippe", dateOuverture: "2023-05-12", type: "Dépôt", balance: 29000 },
+      { id: 14, nom: "Michel", prenom: "Catherine", dateOuverture: "2023-06-18", type: "Prêt", balance: -35000 },
+      { id: 15, nom: "Lefebvre", prenom: "François", dateOuverture: "2023-07-22", type: "Dépôt", balance: 20000 },
+      { id: 16, nom: "Leroy", prenom: "Sandra", dateOuverture: "2023-08-30", type: "Dépôt", balance: 23000 },
+      { id: 17, nom: "Roux", prenom: "David", dateOuverture: "2023-09-15", type: "Prêt", balance: -45000 },
+      { id: 18, nom: "Garcia", prenom: "Nathalie", dateOuverture: "2023-10-20", type: "Dépôt", balance: 26000 },
+      { id: 19, nom: "Dupont", prenom: "Patrick", dateOuverture: "2023-11-10", type: "Dépôt", balance: 18000 },
+      { id: 20, nom: "Fournier", prenom: "Valérie", dateOuverture: "2023-12-05", type: "Prêt", balance: -55000 },
+      { id: 21, nom: "Morel", prenom: "Eric", dateOuverture: "2024-01-12", type: "Dépôt", balance: 15000 },
+      { id: 22, nom: "Girard", prenom: "Christine", dateOuverture: "2024-02-18", type: "Dépôt", balance: 19000 },
+      { id: 23, nom: "Andre", prenom: "Stéphane", dateOuverture: "2024-03-22", type: "Prêt", balance: -48000 },
+      { id: 24, nom: "Lefevre", prenom: "Caroline", dateOuverture: "2024-04-30", type: "Dépôt", balance: 12000 },
+      { id: 25, nom: "Mercier", prenom: "Olivier", dateOuverture: "2024-05-15", type: "Dépôt", balance: 24000 },
+      { id: 26, nom: "Dumont", prenom: "Patricia", dateOuverture: "2024-06-20", type: "Prêt", balance: -52000 },
+      { id: 27, nom: "Lopez", prenom: "Michel", dateOuverture: "2024-07-10", type: "Dépôt", balance: 21000 },
+      { id: 28, nom: "Fontaine", prenom: "Monique", dateOuverture: "2024-08-05", type: "Dépôt", balance: 18000 },
+      { id: 29, nom: "Chevalier", prenom: "Denis", dateOuverture: "2024-09-12", type: "Prêt", balance: -38000 },
+      { id: 30, nom: "Robin", prenom: "Hélène", dateOuverture: "2024-10-18", type: "Dépôt", balance: 23000 },
+      { id: 31, nom: "Masson", prenom: "Georges", dateOuverture: "2024-11-22", type: "Dépôt", balance: 14000 },
+      { id: 32, nom: "Sanchez", prenom: "Annie", dateOuverture: "2024-12-30", type: "Prêt", balance: -42000 },
+      { id: 33, nom: "Gerard", prenom: "Romain", dateOuverture: "2025-01-15", type: "Dépôt", balance: 25000 },
+      { id: 34, nom: "Roche", prenom: "Brigitte", dateOuverture: "2025-02-20", type: "Dépôt", balance: 17000 },
+      { id: 35, nom: "Renard", prenom: "Thierry", dateOuverture: "2025-03-10", type: "Prêt", balance: -47000 },
+      { id: 36, nom: "Schmitt", prenom: "Sylvie", dateOuverture: "2025-04-05", type: "Dépôt", balance: 19000 },
+      { id: 37, nom: "Roy", prenom: "Laurent", dateOuverture: "2025-05-12", type: "Dépôt", balance: 22000 },
+      { id: 38, nom: "Noel", prenom: "Virginie", dateOuverture: "2025-06-18", type: "Prêt", balance: -39000 },
+      { id: 39, nom: "Meyer", prenom: "Gilles", dateOuverture: "2025-07-22", type: "Dépôt", balance: 26000 },
+      { id: 40, nom: "Lemoine", prenom: "Corinne", dateOuverture: "2025-08-30", type: "Dépôt", balance: 13000 }
+    ];
+
+    const transactions = [
+      { id: 1, client: "Jean Pierre", type: "Dépôt", montant: 25000, date: "2023-10-15", statut: "Complété" },
+      { id: 2, client: "Marie Joseph", type: "Prêt", montant: 50000, date: "2023-10-14", statut: "En cours" },
+      { id: 3, client: "Sophie Martin", type: "Remboursement", montant: 15000, date: "2023-10-13", statut: "Complété" },
+      { id: 4, client: "Paul Bernard", type: "Retrait", montant: 10000, date: "2023-10-12", statut: "Complété" },
+      { id: 5, client: "Luc Thomas", type: "Dépôt", montant: 20000, date: "2023-10-11", statut: "Complété" },
+      { id: 6, client: "Nadia Petit", type: "Prêt", montant: 30000, date: "2023-10-10", statut: "En cours" },
+      { id: 7, client: "Marc Robert", type: "Retrait", montant: 8000, date: "2023-10-09", statut: "Complété" },
+      { id: 8, client: "Eva Richard", type: "Dépôt", montant: 12000, date: "2023-10-08", statut: "Complété" },
+      { id: 9, client: "Louis Durand", type: "Remboursement", montant: 10000, date: "2023-10-07", statut: "Complété" },
+      { id: 10, client: "Claire Dubois", type: "Prêt", montant: 40000, date: "2023-10-06", statut: "En cours" }
+    ];
+
+    /* =========================
+       Notification System
+       ========================= */
+    function showNotification(title, message, type = 'success') {
+        const notification = document.getElementById('notification');
+        const notificationTitle = document.getElementById('notificationTitle');
+        const notificationMessage = document.getElementById('notificationMessage');
+        
+        // Set content
+        notificationTitle.textContent = title;
+        notificationMessage.textContent = message;
+        
+        // Set type (color)
+        notification.className = 'notification ' + type;
+        
+        // Show notification
+        notification.classList.add('active');
+        
+        // Auto hide after 5 seconds
+        setTimeout(() => {
+            hideNotification();
+        }, 5000);
+    }
+
+    function hideNotification() {
+        const notification = document.getElementById('notification');
+        notification.classList.remove('active');
+    }
+
+    /* =========================
+       DOM elements
+       ========================= */
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const closeSidebar = document.getElementById('closeSidebar');
+    const themeToggle = document.getElementById('themeToggle');
+
+    const navLinks = document.querySelectorAll('.nav-link');
+    const pageSections = document.querySelectorAll('.page-section');
+
+    const exportReportBtn = document.getElementById('exportReportBtn');
+    const newOperationBtn = document.getElementById('newOperationBtn');
+    const newOperationModal = document.getElementById('newOperationModal');
+    const closeModal = document.getElementById('closeModal');
+    const cancelModal = document.getElementById('cancelModal');
+    const confirmModal = document.getElementById('confirmModal');
+    const modalOperationType = document.getElementById('modalOperationType');
+    const modalClientSelect = document.getElementById('modalClientSelect');
+    const modalAmount = document.getElementById('modalAmount');
+    const addClientFields = document.getElementById('addClientFields');
+    const newClientNom = document.getElementById('newClientNom');
+    const newClientPrenom = document.getElementById('newClientPrenom');
+    const newClientType = document.getElementById('newClientType');
+    const newClientBalance = document.getElementById('newClientBalance');
+
+    const clientsTableBody = document.getElementById('clientsTableBody');
+    const transactionsTableBody = document.getElementById('transactionsTableBody');
+    const searchClient = document.getElementById('searchClient');
+    const searchTransaction = document.getElementById('searchTransaction');
+
+    const resultDepot = document.getElementById('resultDepot');
+    const depotResultText = document.getElementById('depotResultText');
+    const resultPret = document.getElementById('resultPret');
+    const pretResultText = document.getElementById('pretResultText');
+
+    /* =========================
+       Initialization
+       ========================= */
+    document.addEventListener('DOMContentLoaded', function() {
+      // Sidebar default state on mobile
+      if (window.innerWidth <= 900) {
+        sidebar.classList.add('hidden');
+        document.body.classList.remove('menu-open');
+      } else {
+        sidebar.classList.remove('hidden');
+        document.body.classList.remove('menu-open');
+      }
+
+      populateClientsTable(clients);
+      populateTransactionsTable(transactions);
+      populateModalClientSelect();
+      initCharts();
+      setupEventListeners();
+      
+      // Close notification when X is clicked
+      document.getElementById('notificationClose')?.addEventListener('click', hideNotification);
+    });
+
+    /* -------------------------
+       Populate tables
+       ------------------------- */
+    function populateClientsTable(clientsData) {
+      clientsTableBody.innerHTML = '';
+      clientsData.forEach(client => {
+        const row = document.createElement('tr');
+        const balanceSign = client.balance < 0 ? '-' : '+';
+        const balanceAbs = Math.abs(client.balance).toLocaleString();
+        row.innerHTML = `
+          <td>${client.nom}</td>
+          <td>${client.prenom}</td>
+          <td>${client.dateOuverture}</td>
+          <td>${client.type}</td>
+          <td style="font-weight:700; color:${client.balance < 0 ? '#ef4444' : '#10b981'}">${balanceSign} ${balanceAbs} G</td>
+        `;
+        clientsTableBody.appendChild(row);
+      });
+      populateModalClientSelect();
+    }
+
+    function populateTransactionsTable(transactionsData) {
+      transactionsTableBody.innerHTML = '';
+      transactionsData.forEach(transaction => {
+        const row = document.createElement('tr');
+        let badgeClass = 'badge-success';
+        if (transaction.statut === 'En cours') badgeClass = 'badge-warning';
+        if (transaction.statut === 'Échec') badgeClass = 'badge-danger';
+        row.innerHTML = `
+          <td>${transaction.id}</td>
+          <td>${transaction.client}</td>
+          <td>${transaction.type}</td>
+          <td>${transaction.montant.toLocaleString()} G</td>
+          <td>${transaction.date}</td>
+          <td><span class="${badgeClass}">${transaction.statut}</span></td>
+        `;
+        transactionsTableBody.appendChild(row);
+      });
+    }
+
+    function populateModalClientSelect(){
+      if (!modalClientSelect) return;
+      modalClientSelect.innerHTML = '<option value="">Sélectionnez un client</option>';
+      clients.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = `${c.prenom} ${c.nom}`;
+        opt.textContent = `${c.prenom} ${c.nom}`;
+        modalClientSelect.appendChild(opt);
+      });
+    }
+
+    /* -------------------------
+       Charts (responsive)
+       ------------------------- */
+    function initCharts() {
+      const activityCtx = document.getElementById('activityChart').getContext('2d');
+      window.activityChart = new Chart(activityCtx, {
+        type: 'line',
+        data: {
+          labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
+          datasets: [
+            {
+              label: 'Dépôts',
+              data: [12000, 19000, 15000, 25000, 22000, 30000, 28000, 26000, 32000, 35000, 38000, 40000],
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              tension: 0.35,
+              fill: true
+            },
+            {
+              label: 'Prêts',
+              data: [8000, 12000, 10000, 15000, 18000, 22000, 20000, 25000, 28000, 30000, 32000, 35000],
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+              tension: 0.35,
+              fill: true
+            },
+            {
+              label: 'Retraits',
+              data: [5000, 8000, 6000, 9000, 12000, 15000, 13000, 11000, 14000, 16000, 18000, 20000],
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+              tension: 0.35,
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top' } },
+          scales: { y: { beginAtZero: true, ticks: { callback: (v) => v.toLocaleString() + ' G' } } }
+        }
+      });
+
+      const operationCtx = document.getElementById('operationDistributionChart').getContext('2d');
+      window.operationChart = new Chart(operationCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Dépôts', 'Prêts', 'Retraits', 'Remboursements'],
+          datasets: [{ data: [45, 30, 15, 10], backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#3b82f6'] }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    /* -------------------------
+       Events
+       ------------------------- */
+    function setupEventListeners() {
+      // Navigation links
+      navLinks.forEach(link => {
+        link.addEventListener('click', function(e){
+          e.preventDefault();
+          navLinks.forEach(n => n.classList.remove('active'));
+          this.classList.add('active');
+          const target = this.getAttribute('data-page');
+          pageSections.forEach(s => { s.style.display = s.id === target ? '' : 'none'; });
+
+          // Close sidebar on mobile
+          if (window.innerWidth <= 900) {
+            sidebar.classList.add('hidden');
+            document.body.classList.remove('menu-open');
+          }
+          // allow Chart.js to recalc
+          setTimeout(()=>{ window.activityChart?.resize(); window.operationChart?.resize(); }, 260);
+        });
+      });
+
+      // Menu toggle
+      menuToggle?.addEventListener('click', () => {
+        sidebar.classList.toggle('hidden');
+        if (!sidebar.classList.contains('hidden')) document.body.classList.add('menu-open');
+        else document.body.classList.remove('menu-open');
+        setTimeout(()=>{ window.activityChart?.resize(); window.operationChart?.resize(); }, 300);
+      });
+
+      // Close via top X button
+      closeSidebar?.addEventListener('click', () => {
+        sidebar.classList.add('hidden');
+        document.body.classList.remove('menu-open');
+      });
+
+      // Clicking overlay closes menu
+      overlay.addEventListener('click', () => {
+        sidebar.classList.add('hidden');
+        document.body.classList.remove('menu-open');
+      });
+
+      // Theme toggle
+      themeToggle?.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        const i = themeToggle.querySelector('i');
+        if (i) {
+          if (document.body.classList.contains('dark')) { i.classList.remove('fa-moon'); i.classList.add('fa-sun'); }
+          else { i.classList.remove('fa-sun'); i.classList.add('fa-moon'); }
+        }
+      });
+
+      // Modal open/close
+      newOperationBtn?.addEventListener('click', ()=> {
+        newOperationModal.style.display = 'flex';
+        modalOperationType.value = 'depot';
+        modalAmount.value = '';
+        addClientFields.style.display = 'none';
+        document.getElementById('modalAmountRow').style.display = '';
+      });
+      closeModal?.addEventListener('click', ()=> newOperationModal.style.display = 'none');
+      cancelModal?.addEventListener('click', ()=> newOperationModal.style.display = 'none');
+      newOperationModal?.addEventListener('click', (e)=> { if (e.target === newOperationModal) newOperationModal.style.display='none'; });
+
+      // Modal operation change
+      modalOperationType?.addEventListener('change', (e)=> {
+        if (e.target.value === 'add_client') {
+          addClientFields.style.display = '';
+          document.getElementById('modalAmountRow').style.display = 'none';
+        } else {
+          addClientFields.style.display = 'none';
+          document.getElementById('modalAmountRow').style.display = '';
+        }
+      });
+
+      // Confirm modal
+      confirmModal?.addEventListener('click', ()=> {
+        const type = modalOperationType.value;
+        if (type === 'add_client') {
+          const nom = (newClientNom.value || '').trim();
+          const prenom = (newClientPrenom.value || '').trim();
+          const ctype = newClientType.value || 'Dépôt';
+          const balance = parseFloat(newClientBalance.value) || 0;
+          if (!nom || !prenom) { alert('Veuillez entrer nom et prénom.'); return; }
+          const newClient = { id: clients.length + 1, nom, prenom, dateOuverture: new Date().toISOString().split('T')[0], type: ctype, balance };
+          clients.push(newClient);
+          populateClientsTable(clients);
+          populateModalClientSelect();
+          showNotification(
+            "Client Ajouté ✅", 
+            `Client ${prenom} ${nom} ajouté avec succès.`,
+            'success'
+          );
+          newOperationModal.style.display = 'none';
+          newClientNom.value=''; newClientPrenom.value=''; newClientBalance.value='0';
+          return;
+        } else {
+          const selectedClient = modalClientSelect.value;
+          const amount = parseFloat(modalAmount.value);
+          if (!selectedClient || isNaN(amount) || amount <= 0) { alert('Sélectionnez client et montant valides.'); return; }
+          const tx = {
+            id: transactions.length + 1,
+            client: selectedClient,
+            type: (type === 'depot' ? 'Dépôt' : type === 'pret' ? 'Prêt' : type === 'remboursement' ? 'Remboursement' : 'Retrait'),
+            montant: amount,
+            date: new Date().toISOString().split('T')[0],
+            statut: type === 'pret' ? 'En cours' : 'Complété'
+          };
+          transactions.unshift(tx);
+          const clientObj = clients.find(c => `${c.prenom} ${c.nom}` === selectedClient);
+          if (clientObj) {
+            if (tx.type === 'Dépôt' || tx.type === 'Remboursement') clientObj.balance += amount;
+            if (tx.type === 'Prêt' || tx.type === 'Retrait') clientObj.balance -= amount;
+          }
+          populateClientsTable(clients);
+          populateTransactionsTable(transactions);
+          
+          // Show notification with "no fees" message for withdrawals and loans
+          if (type === 'pret' || type === 'retrait') {
+            showNotification(
+              `${tx.type} Réussi ✅`, 
+              `${tx.type} de ${tx.montant.toLocaleString()} G pour ${tx.client}. AUCUN FRAIS appliqué!`,
+              'success'
+            );
+          } else {
+            showNotification(
+              `${tx.type} Réussi ✅`, 
+              `${tx.type} de ${tx.montant.toLocaleString()} G pour ${tx.client}.`,
+              'success'
+            );
+          }
+          
+          newOperationModal.style.display = 'none';
+          modalAmount.value = '';
+        }
+      });
+
+      // Search filters
+      if (searchClient) searchClient.addEventListener('input', function(){
+        const term = (this.value||'').toLowerCase();
+        const filtered = clients.filter(c => c.nom.toLowerCase().includes(term) || c.prenom.toLowerCase().includes(term));
+        populateClientsTable(filtered);
+      });
+      if (searchTransaction) searchTransaction.addEventListener('input', function(){
+        const term = (this.value||'').toLowerCase();
+        const filtered = transactions.filter(t => t.client.toLowerCase().includes(term) || t.type.toLowerCase().includes(term) || t.statut.toLowerCase().includes(term));
+        populateTransactionsTable(filtered);
+      });
+
+      // CSV export
+      exportReportBtn?.addEventListener('click', () => {
+        exportCSV('clients.csv', convertClientsToCSV(clients));
+        exportCSV('transactions.csv', convertTransactionsToCSV(transactions));
+        showNotification(
+          "Export Réussi 📊", 
+          "Téléchargement démarré : clients.csv et transactions.csv",
+          'info'
+        );
+      });
+
+      // Resize charts when sidebar toggles
+      const obs = new MutationObserver(()=> { setTimeout(()=>{ window.activityChart?.resize(); window.operationChart?.resize(); }, 220); });
+      obs.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    /* -------------------------
+       CSV helpers
+       ------------------------- */
+    function convertClientsToCSV(arr) {
+      const headers = ['id','nom','prenom','dateOuverture','type','balance'];
+      const lines = arr.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(','));
+      return headers.join(',') + '\n' + lines.join('\n');
+    }
+    function convertTransactionsToCSV(arr) {
+      const headers = ['id','client','type','montant','date','statut'];
+      const lines = arr.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(','));
+      return headers.join(',') + '\n' + lines.join('\n');
+    }
+    function exportCSV(filename, content) {
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    /* -------------------------
+       Deposit / Loan / Retrait functions (updated with notifications)
+       ------------------------- */
+    function calcDepot() {
+      const montant = parseFloat(document.getElementById('montantDepot').value);
+      const duree = parseInt(document.getElementById('dureeDepot').value);
+      if (isNaN(montant) || montant <= 0) { alert("Veuillez entrer un montant valide."); return; }
+      const tauxInteret = 0.05;
+      const interet = montant * tauxInteret * duree;
+      const montantFinal = montant + interet;
+      document.getElementById('depotResultText').innerHTML = `
+        <strong>Montant initial:</strong> ${montant.toLocaleString()} G<br>
+        <strong>Durée:</strong> ${duree} an(s)<br>
+        <strong>Taux d'intérêt:</strong> 5% par an<br>
+        <strong>Intérêt total:</strong> ${interet.toLocaleString()} G<br>
+        <strong>Montant final:</strong> ${montantFinal.toLocaleString()} G
+      `;
+      resultDepot.classList.add('active'); resultDepot.style.display = 'block';
+    }
+
+    function submitDepot() {
+      const nom = document.getElementById('depotNom').value.trim();
+      const prenom = document.getElementById('depotPrenom').value.trim();
+      const montant = parseFloat(document.getElementById('montantDepot').value);
+      if (!nom || !prenom || isNaN(montant) || montant <= 0) { alert("Veuillez remplir tous les champs correctement."); return; }
+      let client = clients.find(c => c.nom === nom && c.prenom === prenom);
+      if (!client) {
+        client = { id: clients.length + 1, nom, prenom, dateOuverture: new Date().toISOString().split('T')[0], type: "Dépôt", balance: 0 };
+        clients.push(client);
+      }
+      client.balance += montant;
+      const newTransaction = { id: transactions.length + 1, client: `${prenom} ${nom}`, type: "Dépôt", montant, date: new Date().toISOString().split('T')[0], statut: "Complété" };
+      transactions.unshift(newTransaction);
+      populateClientsTable(clients);
+      populateTransactionsTable(transactions);
+      showNotification(
+        "Dépôt Réussi ✅", 
+        `Dépôt de ${montant.toLocaleString()} G effectué avec succès pour ${prenom} ${nom}.`,
+        'success'
+      );
+      document.getElementById('depotNom').value = ''; document.getElementById('depotPrenom').value = ''; document.getElementById('montantDepot').value = ''; resultDepot.classList.remove('active'); resultDepot.style.display = 'none';
+    }
+
+    function calcPret() {
+      const montant = parseFloat(document.getElementById('montantPret').value);
+      const duree = parseInt(document.getElementById('dureePret').value);
+      if (isNaN(montant) || montant <= 0) { alert("Veuillez entrer un montant valide."); return; }
+      const tauxInteret = 0.08;
+      const interet = montant * tauxInteret * (duree / 12);
+      const montantTotal = montant + interet;
+      const mensualite = montantTotal / duree;
+      document.getElementById('pretResultText').innerHTML = `
+        <strong>Montant du prêt:</strong> ${montant.toLocaleString()} G<br>
+        <strong>Durée:</strong> ${duree} mois<br>
+        <strong>Taux d'intérêt:</strong> 8% par an<br>
+        <strong>Intérêt total:</strong> ${interet.toLocaleString()} G<br>
+        <strong>Montant total à rembourser:</strong> ${montantTotal.toLocaleString()} G<br>
+        <strong>Mensualité:</strong> ${mensualite.toLocaleString()} G
+      `;
+      resultPret.classList.add('active'); resultPret.style.display = 'block';
+    }
+
+    function submitPret() {
+      const nom = document.getElementById('pretNom').value.trim();
+      const prenom = document.getElementById('pretPrenom').value.trim();
+      const montant = parseFloat(document.getElementById('montantPret').value);
+      if (!nom || !prenom || isNaN(montant) || montant <= 0) { alert("Veuillez remplir tous les champs correctement."); return; }
+      let client = clients.find(c => c.nom === nom && c.prenom === prenom);
+      if (!client) {
+        client = { id: clients.length + 1, nom, prenom, dateOuverture: new Date().toISOString().split('T')[0], type: "Prêt", balance: 0 };
+        clients.push(client);
+      }
+      client.balance -= montant;
+      const newTransaction = { id: transactions.length + 1, client: `${prenom} ${nom}`, type: "Prêt", montant, date: new Date().toISOString().split('T')[0], statut: "En cours" };
+      transactions.unshift(newTransaction);
+      populateClientsTable(clients);
+      populateTransactionsTable(transactions);
+      showNotification(
+        "Prêt Accordé ✅", 
+        `Prêt de ${montant.toLocaleString()} G accordé à ${prenom} ${nom}. AUCUN FRAIS d'ouverture!`,
+        'success'
+      );
+      document.getElementById('pretNom').value = ''; document.getElementById('pretPrenom').value = ''; document.getElementById('montantPret').value = ''; resultPret.classList.remove('active'); resultPret.style.display = 'none';
+    }
+
+    function submitRetrait() {
+      const nom = document.getElementById('retraitNom').value.trim();
+      const prenom = document.getElementById('retraitPrenom').value.trim();
+      const montant = parseFloat(document.getElementById('montantRetrait').value);
+      const motif = document.getElementById('motifRetrait').value;
+      if (!nom || !prenom || isNaN(montant) || montant <= 0) { 
+        alert("Veuillez remplir tous les champs correctement."); 
+        return; 
+      }
+      const client = clients.find(c => c.nom === nom && c.prenom === prenom);
+      if (!client) { 
+        alert("Client non trouvé. Vérifiez le nom et prénom."); 
+        return; 
+      }
+      if (client.balance < montant) { 
+        alert("Solde insuffisant pour effectuer ce retrait."); 
+        return; 
+      }
+      
+      // NO FEES - Remove the fee calculation
+      client.balance -= montant;
+      
+      const newTransaction = { 
+        id: transactions.length + 1, 
+        client: `${prenom} ${nom}`, 
+        type: "Retrait", 
+        montant, 
+        date: new Date().toISOString().split('T')[0], 
+        statut: "Complété" 
+      };
+      transactions.unshift(newTransaction);
+      
+      populateClientsTable(clients);
+      populateTransactionsTable(transactions);
+      
+      // Show notification instead of alert
+      showNotification(
+        "Retrait Réussi ✅", 
+        `Retrait de ${montant.toLocaleString()} G effectué pour ${prenom} ${nom}. AUCUN FRAIS appliqué!`,
+        'success'
+      );
+      
+      // Clear form
+      document.getElementById('retraitNom').value = ''; 
+      document.getElementById('retraitPrenom').value = ''; 
+      document.getElementById('montantRetrait').value = '';
+    }
+  </script>
+</body>
+</html>
