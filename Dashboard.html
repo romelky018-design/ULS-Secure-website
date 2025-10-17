@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ULS Cooperative - Tableau de Bord</title>
+
+  <!-- Fonts & icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root{
+      --bg: #f6f7fb;
+      --card: #ffffff;
+      --muted: #6b7280;
+      --text: #0f1724;
+      --primary: #7c3aed;
+      --primary-2: #5b21b6;
+      --success: #10b981;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --border: #e6e9ef;
+      --shadow-sm: 0 6px 16px rgba(20,20,40,0.06);
+      --shadow-lg: 0 20px 40px rgba(20,20,40,0.08);
+      --radius: 12px;
+    }
+    body.dark {
+      --bg: #0b1220;
+      --card: #0f1724;
+      --muted: #94a3b8;
+      --text: #e6eef7;
+      --border: #1f2937;
+      --shadow-sm: 0 6px 16px rgba(2,6,23,0.6);
+      --shadow-lg: 0 20px 40px rgba(2,6,23,0.65);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: 'Poppins', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background:var(--bg);
+      color:var(--text);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      line-height:1.45;
+    }
+
+    /* OVERLAY (for mobile menu) */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 220ms ease;
+      z-index: 1090;
+    }
+    body.menu-open #overlay {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Layout */
+    .container { display:flex; min-height:100vh; width:100%; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 300px;
+      min-width: 260px;
+      background: linear-gradient(180deg, rgba(124,58,237,0.03), rgba(91,33,182,0.02));
+      padding: 20px;
+      box-shadow: var(--shadow-sm);
+      border-right: 1px solid rgba(0,0,0,0.03);
+      display:flex; flex-direction:column; gap:16px;
+      position: fixed; left:0; top:0; height:100vh; z-index:1100;
+      transition: transform 260ms cubic-bezier(.2,.9,.3,1);
+    }
+    .sidebar.hidden { transform: translateX(-112%); }
+    /* On mobile when open we want solid white background for clarity */
+    @media (max-width:900px) {
+      .sidebar { background: var(--card); box-shadow: 6px 0 30px rgba(0,0,0,0.25); border-radius: 0 16px 16px 0; }
+    }
+
+    .logo { display:flex; gap:12px; align-items:center; padding-bottom:8px; border-bottom:1px solid var(--border); }
+    .logo-icon { width:52px; height:52px; border-radius:12px; background: linear-gradient(135deg,var(--primary),var(--primary-2)); display:flex; align-items:center; justify-content:center; color:white; font-size:1.2rem; box-shadow: 0 10px 30px rgba(124,58,237,0.12); }
+    .logo-text { font-size:1.25rem; font-weight:700; color:var(--primary-2); }
+
+    .sidebar-hero { background: linear-gradient(90deg, rgba(124,58,237,0.03), rgba(59,130,246,0.02)); border-radius:12px; padding:10px; border:1px solid rgba(124,58,237,0.04); display:flex; justify-content:space-between; align-items:center; }
+
+    .nav-links { display:flex; flex-direction:column; gap:8px; padding:0; margin:8px 0 0 0; list-style:none; }
+    .nav-links a { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; text-decoration:none; color:var(--text); font-weight:600; transition: all 160ms; border:1px solid transparent; }
+    .nav-links a .i { width:38px; height:38px; border-radius:8px; display:flex; align-items:center; justify-content:center; background: rgba(15,23,42,0.03); color:var(--primary-2); font-size:1.05rem; }
+    .nav-links a:hover { transform: translateY(-3px); box-shadow: var(--shadow-sm); background: linear-gradient(90deg, rgba(124,58,237,0.03), rgba(59,130,246,0.02)); border-color: rgba(124,58,237,0.04); }
+    .nav-links a.active { background: linear-gradient(90deg, var(--primary), var(--primary-2)); color:white; box-shadow: 0 10px 30px rgba(124,58,237,0.12); }
+    .nav-links a.active .i { background: transparent; color: white; }
+
+    .sidebar-footer { margin-top:auto; padding-top:12px; border-top:1px dashed rgba(124,58,237,0.04); display:flex; align-items:center; gap:12px; }
+    .user-avatar { width:46px; height:46px; border-radius:12px; background: linear-gradient(135deg,var(--primary),var(--primary-2)); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:1rem; box-shadow: 0 10px 20px rgba(124,58,237,0.12); }
+
+    /* MAIN */
+    .main { margin-left:300px; padding:20px; flex:1; transition: margin-left 260ms cubic-bezier(.2,.9,.3,1); min-height:100vh; }
+    .sidebar.hidden + .main { margin-left:24px; }
+
+    .header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; }
+    .btn { padding:10px 14px; border-radius:10px; border:none; font-weight:700; cursor:pointer; background:var(--card); color:var(--text); box-shadow:var(--shadow-sm); }
+    .btn-primary { background: linear-gradient(90deg,var(--primary),var(--primary-2)); color:white; box-shadow: 0 10px 30px rgba(124,58,237,0.12); }
+    .btn-outline { background: transparent; border:1px solid var(--border); }
+    .btn-success { background: linear-gradient(90deg,var(--success),#0d9c6d); color:white; }
+    .btn-warning { background: linear-gradient(90deg,var(--warning),#d97706); color:white; }
+
+    .hero { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color:white; padding:22px; border-radius:14px; box-shadow:var(--shadow-lg); margin-bottom:18px; }
+    .stats-grid { display:grid; grid-template-columns: repeat(4,1fr); gap:14px; margin-bottom:18px; }
+    .stat-card { background:var(--card); border-radius:12px; padding:14px; box-shadow:var(--shadow-sm); border:1px solid var(--border); display:flex; gap:12px; align-items:center; }
+    .charts-container { display:grid; grid-template-columns: 2fr 1fr; gap:14px; margin-bottom:18px; }
+    .chart-card { background:var(--card); border-radius:12px; padding:14px; box-shadow:var(--shadow-sm); border:1px solid var(--border); }
+    .chart-card canvas { width:100% !important; height:260px !important; display:block; }
+
+    .table-container { overflow-x:auto; border-radius:12px; box-shadow:var(--shadow-sm); border:1px solid var(--border); margin-bottom:18px; background:var(--card); }
+    table { width:100%; border-collapse: collapse; }
+    thead th { padding:12px 14px; background: linear-gradient(90deg,var(--primary),var(--primary-2)); color:white; position: sticky; top:0; }
+    tbody td { padding:12px 14px; }
+    tbody tr:hover { background: rgba(124,58,237,0.03); }
+
+    /* Client details modal */
+    .client-details-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 1300;
+      align-items: center;
+      justify-content: center;
+    }
+    .client-details-content {
+      width: 94%;
+      max-width: 800px;
+      max-height: 90vh;
+      overflow-y: auto;
+      background: var(--card);
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: var(--shadow-lg);
+    }
+    .client-info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .client-info-item {
+      padding: 12px;
+      border-radius: 8px;
+      background: rgba(124,58,237,0.03);
+    }
+    .client-info-label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .client-info-value {
+      font-weight: 600;
+    }
+
+    /* Receipt modal */
+    .receipt-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 1400;
+      align-items: center;
+      justify-content: center;
+    }
+    .receipt-content {
+      width: 94%;
+      max-width: 600px;
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: var(--shadow-lg);
+    }
+    .receipt-header {
+      text-align: center;
+      border-bottom: 2px solid #333;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    .receipt-details {
+      margin-bottom: 20px;
+    }
+    .receipt-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px dashed #ddd;
+    }
+    .receipt-total {
+      font-weight: bold;
+      font-size: 1.1em;
+      border-top: 2px solid #333;
+      padding-top: 10px;
+      margin-top: 15px;
+    }
+
+    /* Print styles for receipt */
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      #receiptModal, #receiptModal * {
+        visibility: visible;
+      }
+      #receiptModal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        background: white;
+      }
+      .receipt-content {
+        box-shadow: none;
+        max-width: 100%;
+      }
+      .btn {
+        display: none !important;
+      }
+      .receipt-fees {
+        display: none !important;
+      }
+    }
+
+    /* responsive */
+    @media (max-width:1100px) {
+      .stats-grid{ grid-template-columns: repeat(2,1fr); }
+      .charts-container{ grid-template-columns: 1fr; }
+      .chart-card canvas{ height:220px !important; }
+    }
+    @media (max-width:900px) {
+      .sidebar { transform: translateX(-112%); } /* hidden by default */
+      .sidebar.hidden { transform: translateX(-112%); }
+      .main{ margin-left:24px; padding:16px; }
+      .chart-card canvas { height:200px !important; }
+      .menu-toggle { 
+        display:block; 
+        position:fixed; 
+        left:16px; 
+        top:16px; 
+        z-index:1205; 
+        background: linear-gradient(90deg,var(--primary),var(--primary-2)); 
+        color:white; 
+        border:none; 
+        padding:10px 12px; 
+        border-radius:10px; 
+        box-shadow:var(--shadow-sm);
+      }
+    }
+    @media (max-width:480px) {
+      .sidebar { width:86%; max-width:360px; }
+      .main{ padding:12px; margin-left:12px; }
+      .chart-card canvas{ height:180px !important; }
+      .stats-grid{ grid-template-columns: 1fr; }
+    }
+
+    /* small helpers */
+    .menu-toggle { display:none; }
+    .form-control { width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--text); }
+    .result-box { display:none; padding:12px; border-radius:10px; background: rgba(124,58,237,0.06); margin-top:12px; }
+    .result-box.active { display:block; }
+    .card { background: var(--card); border-radius: 12px; padding: 14px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); margin-bottom: 18px; }
+    .badge-success { background: var(--success); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }
+    .badge-warning { background: var(--warning); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }
+    .badge-danger { background: var(--danger); color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.8rem; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; margin-bottom: 6px; font-weight: 500; }
+    .action-buttons { display: flex; gap: 8px; margin-top: 12px; }
+    .hidden-field { display: none; }
+    .receipt-fees { display: none; }
+  </style>
+</head>
+<body>
+  <!-- Mobile menu toggle -->
+  <button id="menuToggle" class="menu-toggle" aria-label="Ouvrir le menu"><i class="fas fa-bars"></i></button>
+
+  <!-- Overlay for mobile menu -->
+  <div id="overlay" aria-hidden="true"></div>
+
+  <div class="container">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar" aria-label="Navigation principale">
+      <div class="logo">
+        <div class="logo-icon"><i class="fas fa-hand-holding-usd"></i></div>
+        <div class="logo-text">ULS Cooperative</div>
+      </div>
+
+      <div class="sidebar-hero" aria-hidden="true">
+        <div>
+          <div style="font-weight:800; font-size:1.15rem" id="sidebarCapital">4.2M G</div>
+          <div style="color:var(--muted); font-size:0.85rem">Capital Prêté</div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:var(--muted); font-size:0.85rem">Clients</div>
+          <div style="font-weight:800" id="sidebarClients">1,247+</div>
+        </div>
+      </div>
+
+      <ul class="nav-links" id="navLinksList">
+        <li><a href="#" class="nav-link active" data-page="dashboard"><span class="i"><i class="fas fa-chart-line"></i></span>Tableau de Bord</a></li>
+        <li><a href="#" class="nav-link" data-page="depot"><span class="i"><i class="fas fa-wallet"></i></span>Dépôts</a></li>
+        <li><a href="#" class="nav-link" data-page="pret"><span class="i"><i class="fas fa-hand-holding-usd"></i></span>Prêts</a></li>
+        <li><a href="#" class="nav-link" data-page="retrait"><span class="i"><i class="fas fa-money-bill-wave"></i></span>Retraits</a></li>
+        <li><a href="#" class="nav-link" data-page="clients"><span class="i"><i class="fas fa-users"></i></span>Clients</a></li>
+        <li><a href="#" class="nav-link" data-page="transactions"><span class="i"><i class="fas fa-file-invoice-dollar"></i></span>Transactions</a></li>
+        <li><a href="#" class="nav-link" data-page="parametres"><span class="i"><i class="fas fa-cog"></i></span>Paramètres</a></li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div class="user-avatar">AD</div>
+        <div>
+          <div style="font-weight:700">Admin ULS</div>
+          <div style="color:var(--muted); font-size:0.85rem">Administrateur Principal</div>
+        </div>
+        <div style="margin-left:auto; display:flex; gap:8px;">
+          <button class="btn" id="themeToggle" title="Basculer thème"><i class="fas fa-moon"></i></button>
+          <button class="btn" id="closeSidebar" title="Fermer le menu"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main" id="mainContent">
+      <div class="header">
+        <div>
+          <div style="color:var(--muted)">Bienvenue</div>
+          <h1 style="margin:0; font-size:1.4rem">Tableau de Bord</h1>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button class="btn btn-outline" id="exportReportBtn"><i class="fas fa-file-export"></i>&nbsp;Exporter Rapport (CSV)</button>
+          <button class="btn btn-primary" id="newOperationBtn"><i class="fas fa-plus-circle"></i>&nbsp;Nouvelle Opération</button>
+        </div>
+      </div>
+
+      <!-- Dashboard Section -->
+      <section id="dashboard" class="page-section">
+        <div class="hero">
+          <h1 style="margin:0 0 8px 0">Envoyez, Recevez, Gérez Votre Argent Facilement</h1>
+          <p style="margin:0">ULS Cooperative vous offre des solutions financières complètes pour réaliser vos projets. Rejoignez notre communauté de confiance.</p>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card"><div style="width:60px;height:60px;border-radius:12px;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white"><i class="fas fa-users"></i></div><div><h3 style="margin:0" id="totalClients">1,247</h3><p style="margin:6px 0 0 0;color:var(--muted)">Clients Actifs</p></div></div>
+          <div class="stat-card"><div style="width:60px;height:60px;border-radius:12px;background:#10b981;display:flex;align-items:center;justify-content:center;color:white"><i class="fas fa-wallet"></i></div><div><h3 style="margin:0" id="totalCapital">4.2M G</h3><p style="margin:6px 0 0 0;color:var(--muted)">Capital Prêté</p></div></div>
+          <div class="stat-card"><div style="width:60px;height:60px;border-radius:12px;background:#f59e0b;display:flex;align-items:center;justify-content:center;color:white"><i class="fas fa-hand-holding-usd"></i></div><div><h3 style="margin:0" id="totalLoans">856</h3><p style="margin:6px 0 0 0;color:var(--muted)">Prêts Actifs</p></div></div>
+          <div class="stat-card"><div style="width:60px;height:60px;border-radius:12px;background:#ef4444;display:flex;align-items:center;justify-content:center;color:white"><i class="fas fa-chart-line"></i></div><div><h3 style="margin:0" id="totalProfits">421K G</h3><p style="margin:6px 0 0 0;color:var(--muted)">Bénéfices Annuels</p></div></div>
+        </div>
+
+        <div class="charts-container">
+          <div class="chart-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <h3 style="margin:0">Évolution des Activités</h3>
+              <div style="color:var(--muted); font-weight:600; font-size:0.9rem">Derniers 12 mois</div>
+            </div>
+            <canvas id="activityChart"></canvas>
+          </div>
+
+          <div class="chart-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <h3 style="margin:0">Répartition des Opérations</h3>
+              <div style="color:var(--muted); font-weight:600; font-size:0.9rem">Aujourd'hui</div>
+            </div>
+            <canvas id="operationDistributionChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:18px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h3 style="margin:0">Activités Récentes</h3>
+            <button class="btn btn-outline">Voir Tout</button>
+          </div>
+          <ul style="margin-top:12px; padding:0; list-style:none" id="recentActivities">
+            <!-- Recent activities will be populated here -->
+          </ul>
+        </div>
+      </section>
+
+      <!-- DEPOT -->
+      <section id="depot" class="page-section" style="display:none">
+        <div class="card">
+          <h3>Nouveau Dépôt</h3>
+          <div style="margin-top:12px">
+            <div class="form-group"><label>Nom du Client</label><input class="form-control" id="depotNom" type="text" placeholder="Nom"></div>
+            <div class="form-group"><label>Prénom du Client</label><input class="form-control" id="depotPrenom" type="text" placeholder="Prénom"></div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <div style="flex:1"><label>Montant (G)</label><input class="form-control" id="montantDepot" type="number"></div>
+              <div style="width:160px"><label>Durée (années)</label><select id="dureeDepot" class="form-control"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="5">5</option></select></div>
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-outline" onclick="calcDepot()"><i class="fas fa-calculator"></i>&nbsp;Calculer</button>
+              <button class="btn btn-primary" onclick="submitDepot()"><i class="fas fa-paper-plane"></i>&nbsp;Soumettre</button>
+              <button class="btn btn-success" onclick="showReceipt('depot')"><i class="fas fa-print"></i>&nbsp;Imprimer Reçu</button>
+            </div>
+            <div id="resultDepot" class="result-box"><h4 style="margin:6px 0">Résultat</h4><div id="depotResultText"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRET -->
+      <section id="pret" class="page-section" style="display:none">
+        <div class="card">
+          <h3>Nouvelle Demande de Prêt</h3>
+          <div style="margin-top:12px">
+            <div class="form-group"><label>Nom du Client</label><input class="form-control" id="pretNom" type="text"></div>
+            <div class="form-group"><label>Prénom du Client</label><input class="form-control" id="pretPrenom" type="text"></div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <div style="flex:1"><label>Montant (G)</label><input class="form-control" id="montantPret" type="number"></div>
+              <div style="width:160px"><label>Durée (mois)</label><select id="dureePret" class="form-control"><option value="6">6</option><option value="12">12</option><option value="24">24</option><option value="36">36</option></select></div>
+            </div>
+            <div class="form-group">
+              <label>Type de Bien</label>
+              <select id="bienType" class="form-control">
+                <option value="Maison">Maison</option>
+                <option value="Voiture">Voiture</option>
+                <option value="Terrain">Terrain</option>
+                <option value="Animaux">Animaux</option>
+                <option value="Ferme">Ferme</option>
+              </select>
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-outline" onclick="calcPret()"><i class="fas fa-calculator"></i>&nbsp;Calculer</button>
+              <button class="btn btn-primary" onclick="submitPret()"><i class="fas fa-paper-plane"></i>&nbsp;Soumettre</button>
+              <button class="btn btn-success" onclick="showReceipt('pret')"><i class="fas fa-print"></i>&nbsp;Imprimer Reçu</button>
+            </div>
+            <div id="resultPret" class="result-box"><h4 style="margin:6px 0">Résultat</h4><div id="pretResultText"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- RETRAIT -->
+      <section id="retrait" class="page-section" style="display:none">
+        <div class="card">
+          <h3>Nouveau Retrait</h3>
+          <div style="margin-top:12px">
+            <div class="form-group"><label>Nom du Client</label><input class="form-control" id="retraitNom" type="text"></div>
+            <div class="form-group"><label>Prénom du Client</label><input class="form-control" id="retraitPrenom" type="text"></div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <div style="flex:1"><label>Montant (G)</label><input class="form-control" id="montantRetrait" type="number"></div>
+              <div style="width:180px"><label>Motif</label><select id="motifRetrait" class="form-control"><option value="urgence">Urgence</option><option value="paiement">Paiement</option><option value="achat">Achat</option><option value="autre">Autre</option></select></div>
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-primary" onclick="submitRetrait()"><i class="fas fa-paper-plane"></i>&nbsp;Soumettre</button>
+              <button class="btn btn-success" onclick="showReceipt('retrait')"><i class="fas fa-print"></i>&nbsp;Imprimer Reçu</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CLIENTS -->
+      <section id="clients" class="page-section" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div><div style="color:var(--muted)">Données</div><div style="font-weight:800">Gestion des Clients</div></div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <div style="position:relative;">
+              <i class="fas fa-search" style="position:absolute; left:10px; top:10px; color:var(--muted)"></i>
+              <input id="searchClient" class="form-control" type="text" placeholder="Rechercher un client..." style="padding-left:36px; width:240px;">
+            </div>
+            <button class="btn btn-primary" id="addClientBtn"><i class="fas fa-user-plus"></i>&nbsp;Ajouter un Client</button>
+          </div>
+        </div>
+        <div class="table-container">
+          <table id="clientsTable">
+            <thead><tr><th>Nom</th><th>Prénom</th><th>Téléphone</th><th>NIF/CIN</th><th>Type de Compte</th><th>Type de Prêt</th><th>Balance (G)</th><th>Actions</th></tr></thead>
+            <tbody id="clientsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- TRANSACTIONS -->
+      <section id="transactions" class="page-section" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div><div style="color:var(--muted)">Données</div><div style="font-weight:800">Historique des Transactions</div></div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <div style="position:relative;">
+              <i class="fas fa-search" style="position:absolute; left:10px; top:10px; color:var(--muted)"></i>
+              <input id="searchTransaction" class="form-control" type="text" placeholder="Rechercher une transaction..." style="padding-left:36px; width:240px;">
+            </div>
+          </div>
+        </div>
+        <div class="table-container">
+          <table id="transactionsTable">
+            <thead><tr><th>ID</th><th>Client</th><th>Type</th><th>Montant (G)</th><th>Date</th><th>Statut</th></tr></thead>
+            <tbody id="transactionsTableBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- PARAMETRES -->
+      <section id="parametres" class="page-section" style="display:none">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div><div style="color:var(--muted)">Administration</div><div style="font-weight:800">Paramètres</div></div>
+        </div>
+        <div class="card" style="margin-bottom:12px;">
+          <h3>Paramètres du Système</h3>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-top:12px;">
+            <div><label>Taux dépôt (%)</label><input class="form-control" type="number" value="5" step="0.1"></div>
+            <div><label>Taux prêt (%)</label><input class="form-control" type="number" value="8" step=0.1"></div>
+            <div><label>Frais retrait (%)</label><input class="form-control" type="number" value="1" step="0.1"></div>
+            <div><label>Limite retrait (G)</label><input class="form-control" type="number" value="50000"></div>
+          </div>
+          <div style="margin-top:12px"><button class="btn btn-primary"><i class="fas fa-save"></i>&nbsp;Enregistrer</button></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal: Add Client -->
+  <div id="addClientModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1205; align-items:center; justify-content:center;">
+    <div style="width:94%; max-width:680px; background:var(--card); border-radius:12px; padding:18px; box-shadow:var(--shadow-lg);">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0">Ajouter un Nouveau Client</h3>
+        <button class="btn" id="closeAddClientModal">&times;</button>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+          <div><label>Nom *</label><input id="clientNom" class="form-control" type="text" required></div>
+          <div><label>Prénom *</label><input id="clientPrenom" class="form-control" type="text" required></div>
+          <div><label>Téléphone *</label><input id="clientPhone" class="form-control" type="tel" required></div>
+          <div><label>NIF/CIN *</label><input id="clientNif" class="form-control" type="text" required></div>
+          <div style="grid-column: span 2"><label>Adresse *</label><input id="clientAddress" class="form-control" type="text" required></div>
+        </div>
+
+        <div style="margin-top:12px;">
+          <div class="form-group">
+            <label>Type de Compte *</label>
+            <select id="clientAccountType" class="form-control" onchange="toggleLoanType()">
+              <option value="depot">Dépôt</option>
+              <option value="pret">Prêt</option>
+            </select>
+          </div>
+
+          <div id="loanTypeContainer" class="form-group hidden-field">
+            <label>Type de Bien</label>
+            <select id="clientLoanType" class="form-control">
+              <option value="Maison">Maison</option>
+              <option value="Voiture">Voiture</option>
+              <option value="Terrain">Terrain</option>
+              <option value="Animaux">Animaux</option>
+              <option value="Ferme">Ferme</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Montant Initial (G) *</label>
+            <input id="clientAmount" class="form-control" type="number" required>
+          </div>
+        </div>
+
+        <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+          <button class="btn btn-outline" id="cancelAddClient">Annuler</button>
+          <button class="btn btn-primary" id="submitAddClient">Ajouter le Client</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Client Details -->
+  <div id="clientDetailsModal" class="client-details-modal">
+    <div class="client-details-content">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px;">
+        <h3 style="margin:0">Détails du Client</h3>
+        <button class="btn" id="closeClientModal">&times;</button>
+      </div>
+      
+      <div class="client-info-grid">
+        <div class="client-info-item">
+          <div class="client-info-label">Nom</div>
+          <div class="client-info-value" id="detailNom"></div>
+        </div>
+        <div class="client-info-item">
+          <div class="client-info-label">Prénom</div>
+          <div class="client-info-value" id="detailPrenom"></div>
+        </div>
+        <div class="client-info-item">
+          <div class="client-info-label">Téléphone</div>
+          <div class="client-info-value" id="detailPhone"></div>
+        </div>
+        <div class="client-info-item">
+          <div class="client-info-label">NIF/CIN</div>
+          <div class="client-info-value" id="detailNif"></div>
+        </div>
+        <div class="client-info-item">
+          <div class="client-info-label">Type de Compte</div>
+          <div class="client-info-value" id="detailAccountType"></div>
+        </div>
+        <div class="client-info-item">
+          <div class="client-info-label">Type de Prêt</div>
+          <div class="client-info-value" id="detailLoanType"></div>
+        </div>
+        <div class="client-info-item">
+          <div class="client-info-label">Date d'Ouverture</div>
+          <div class="client-info-value" id="detailDate"></div>
+        </div>
+        <div class="client-info-item" style="grid-column: span 2">
+          <div class="client-info-label">Adresse</div>
+          <div class="client-info-value" id="detailAddress"></div>
+        </div>
+        <div class="client-info-item">
+          <div class="client-info-label">Balance</div>
+          <div class="client-info-value" id="detailBalance"></div>
+        </div>
+      </div>
+      
+      <h4 style="margin:18px 0 12px 0">Historique des Transactions</h4>
+      <div class="table-container">
+        <table>
+          <thead><tr><th>Date</th><th>Type</th><th>Montant (G)</th><th>Détails</th></tr></thead>
+          <tbody id="clientTransactionsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Receipt -->
+  <div id="receiptModal" class="receipt-modal">
+    <div class="receipt-content">
+      <div class="receipt-header">
+        <h2 style="margin:0">ULS Cooperative</h2>
+        <p style="margin:5px 0">Reçu de Transaction</p>
+        <p style="margin:0; font-size:0.9em" id="receiptDate"></p>
+      </div>
+      
+      <div class="receipt-details">
+        <div class="receipt-row">
+          <span>Type d'opération:</span>
+          <span id="receiptType"></span>
+        </div>
+        <div class="receipt-row">
+          <span>Client:</span>
+          <span id="receiptClient"></span>
+        </div>
+        <div class="receipt-row">
+          <span>Montant:</span>
+          <span id="receiptAmount"></span>
+        </div>
+        <div id="receiptBienRow" class="receipt-row" style="display:none">
+          <span>Type de bien:</span>
+          <span id="receiptBien"></span>
+        </div>
+        <div id="receiptDurationRow" class="receipt-row">
+          <span>Durée:</span>
+          <span id="receiptDuration"></span>
+        </div>
+        <div class="receipt-row receipt-fees">
+          <span>Frais:</span>
+          <span id="receiptFees"></span>
+        </div>
+        <div class="receipt-total">
+          <span>Total:</span>
+          <span id="receiptTotal"></span>
+        </div>
+      </div>
+      
+      <div style="text-align:center; margin-top:20px; border-top:1px solid #333; padding-top:15px;">
+        <p style="margin:5px 0">Merci pour votre confiance!</p>
+        <p style="margin:0; font-size:0.8em">ULS Cooperative - Service Client: +509 48 00 0000</p>
+      </div>
+      
+      <div style="display:flex; gap:8px; justify-content:center; margin-top:20px;">
+        <button class="btn btn-outline" id="closeReceiptModal">Fermer</button>
+        <button class="btn btn-primary" onclick="window.print()"><i class="fas fa-print"></i>&nbsp;Imprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: New Operation -->
+  <div id="newOperationModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:1205; align-items:center; justify-content:center;">
+    <div style="width:94%; max-width:680px; background:var(--card); border-radius:12px; padding:18px; box-shadow:var(--shadow-lg);">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0">Nouvelle Opération</h3>
+        <button class="btn" id="closeModal">&times;</button>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <div style="flex:1;">
+            <label>Type d'opération</label>
+            <select id="modalOperationType" class="form-control">
+              <option value="depot">Dépôt</option>
+              <option value="pret">Prêt</option>
+              <option value="retrait">Retrait</option>
+              <option value="remboursement">Remboursement</option>
+              <option value="add_client">Ajouter un client</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="modalFields" style="margin-top:12px;">
+          <!-- Client Information Form (shown when adding client) -->
+          <div id="modalClientForm" style="margin-top:12px; display:none;">
+            <h4 style="margin:12px 0 8px 0">Informations du Client</h4>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+              <div><label>Nom *</label><input id="modalClientNom" class="form-control" type="text" required></div>
+              <div><label>Prénom *</label><input id="modalClientPrenom" class="form-control" type="text" required></div>
+              <div><label>Téléphone *</label><input id="modalClientPhone" class="form-control" type="tel" required></div>
+              <div><label>NIF/CIN *</label><input id="modalClientNif" class="form-control" type="text" required></div>
+              <div style="grid-column: span 2"><label>Adresse *</label><input id="modalClientAddress" class="form-control" type="text" required></div>
+            </div>
+
+            <div style="margin-top:12px;">
+              <div class="form-group">
+                <label>Type de Compte *</label>
+                <select id="modalClientAccountType" class="form-control" onchange="toggleModalLoanType()">
+                  <option value="depot">Dépôt</option>
+                  <option value="pret">Prêt</option>
+                </select>
+              </div>
+
+              <div id="modalLoanTypeContainer" class="form-group hidden-field">
+                <label>Type de Prêt</label>
+                <select id="modalClientLoanType" class="form-control">
+                  <option value="Maison">Maison</option>
+                  <option value="Voiture">Voiture</option>
+                  <option value="Terrain">Terrain</option>
+                  <option value="Animaux">Animaux</option>
+                  <option value="Ferme">Ferme</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Montant Initial (G) *</label>
+                <input id="modalClientAmount" class="form-control" type="number" required>
+              </div>
+            </div>
+          </div>
+
+          <!-- Operation Details (shown for other operations) -->
+          <div id="modalOperationDetails" style="margin-top:12px;">
+            <h4 style="margin:12px 0 8px 0">Détails de l'Opération</h4>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+              <div><label>Client</label><select id="modalClientSelect" class="form-control"><option value="">Sélectionnez un client</option></select></div>
+              <div><label>Montant (G)</label><input id="modalAmount" class="form-control" type="number" placeholder="Entrez le montant"></div>
+              <div id="modalDurationContainer"><label>Durée</label><input id="modalDuration" class="form-control" type="text"></div>
+              <div id="modalBienContainer" style="display:none"><label>Type de Bien</label><select id="modalBienType" class="form-control"><option value="Maison">Maison</option><option value="Voiture">Voiture</option><option value="Terrain">Terrain</option><option value="Animaux">Animaux</option><option value="Ferme">Ferme</option></select></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:12px;">
+          <button class="btn" id="cancelModal">Annuler</button>
+          <button class="btn btn-primary" id="confirmModal">Confirmer</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* =========================
+       DATA (Updated with 25 realistic Haitian clients matching dashboard stats)
+       ========================= */
+    let clients = [
+      { id: 1, nom: "Jean", prenom: "Pierre", phone: "509-3456-7890", nif: "001-123456-1", address: "123 Rue Capois, Port-au-Prince", accountType: "depot", loanType: "", dateInscription: "2022-05-15", balance: 250000, transactions: [] },
+      { id: 2, nom: "Joseph", prenom: "Marie", phone: "509-3456-7891", nif: "001-123456-2", address: "456 Avenue Christophe, Pétion-Ville", accountType: "depot", loanType: "", dateInscription: "2022-06-20", balance: 180000, transactions: [] },
+      { id: 3, nom: "Louis", prenom: "Marc", phone: "509-3456-7892", nif: "001-123456-3", address: "789 Rue Lamartinière, Jacmel", accountType: "pret", loanType: "Maison", dateInscription: "2022-07-10", balance: -750000, transactions: [] },
+      { id: 4, nom: "Michel", prenom: "Paul", phone: "509-3456-7893", nif: "001-123456-4", address: "321 Boulevard Toussaint, Cap-Haïtien", accountType: "depot", loanType: "", dateInscription: "2022-08-05", balance: 320000, transactions: [] },
+      { id: 5, nom: "François", prenom: "Luc", phone: "509-3456-7894", nif: "001-123456-5", address: "654 Impulsion Sud, Les Cayes", accountType: "pret", loanType: "Voiture", dateInscription: "2022-09-12", balance: -450000, transactions: [] },
+      { id: 6, nom: "Alexandre", prenom: "Nadia", phone: "509-3456-7895", nif: "001-123456-6", address: "987 Route Nationale #1, Gonaïves", accountType: "depot", loanType: "", dateInscription: "2022-10-18", balance: 280000, transactions: [] },
+      { id: 7, nom: "Ronald", prenom: "Marc", phone: "509-3456-7896", nif: "001-123456-7", address: "147 Rue Pavée, Saint-Marc", accountType: "depot", loanType: "", dateInscription: "2022-11-22", balance: 220000, transactions: [] },
+      { id: 8, nom: "Wilson", prenom: "Eva", phone: "509-3456-7897", nif: "001-123456-8", address: "258 Zone Industrielle, Carrefour", accountType: "pret", loanType: "Terrain", dateInscription: "2022-12-30", balance: -600000, transactions: [] },
+      { id: 9, nom: "Daniel", prenom: "Louis", phone: "509-3456-7898", nif: "001-123456-9", address: "369 Delmas 33, Delmas", accountType: "depot", loanType: "", dateInscription: "2023-01-15", balance: 190000, transactions: [] },
+      { id: 10, nom: "Patrick", prenom: "Claire", phone: "509-3456-7899", nif: "001-123456-10", address: "741 Route de Frères, Tabarre", accountType: "depot", loanType: "", dateInscription: "2023-02-20", balance: 310000, transactions: [] },
+      { id: 11, nom: "Emmanuel", prenom: "Sophie", phone: "509-3456-7800", nif: "001-123456-11", address: "852 Côte Plage, Jacmel", accountType: "pret", loanType: "Animaux", dateInscription: "2023-03-10", balance: -550000, transactions: [] },
+      { id: 12, nom: "Roosevelt", prenom: "Isabelle", phone: "509-3456-7801", nif: "001-123456-12", address: "963 Morne Calvaire, Pétion-Ville", accountType: "depot", loanType: "", dateInscription: "2023-04-05", balance: 270000, transactions: [] },
+      { id: 13, nom: "Widley", prenom: "Philippe", phone: "509-3456-7802", nif: "001-123456-13", address: "159 Rue du Centre, Port-au-Prince", accountType: "depot", loanType: "", dateInscription: "2023-05-12", balance: 230000, transactions: [] },
+      { id: 14, nom: "Woossel", prenom: "Catherine", phone: "509-3456-7803", nif: "001-123456-14", address: "753 Avenue John Brown, Delmas", accountType: "pret", loanType: "Ferme", dateInscription: "2023-06-18", balance: -800000, transactions: [] },
+      { id: 15, nom: "Jean-Baptiste", prenom: "Nathalie", phone: "509-3456-7804", nif: "001-123456-15", address: "426 Route des Dalles, Port-au-Prince", accountType: "depot", loanType: "", dateInscription: "2023-07-22", balance: 340000, transactions: [] },
+      { id: 16, nom: "Saint-Vil", prenom: "Sandra", phone: "509-3456-7805", nif: "001-123456-16", address: "684 Boulevard 15 Octobre, Carrefour", accountType: "depot", loanType: "", dateInscription: "2023-08-30", balance: 260000, transactions: [] },
+      { id: 17, nom: "Dorvil", prenom: "David", phone: "509-3456-7806", nif: "001-123456-17", address: "975 Rue Magny, Pétion-Ville", accountType: "pret", loanType: "Maison", dateInscription: "2023-09-15", balance: -700000, transactions: [] },
+      { id: 18, nom: "Laurent", prenom: "Valérie", phone: "509-3456-7807", nif: "001-123456-18", address: "264 Avenue Panaméricaine, Pétion-Ville", accountType: "depot", loanType: "", dateInscription: "2023-10-20", balance: 290000, transactions: [] },
+      { id: 19, nom: "Dupont", prenom: "Roseline", phone: "509-3456-7808", nif: "001-123456-19", address: "837 Delmas 75, Delmas", accountType: "depot", loanType: "", dateInscription: "2023-11-10", balance: 210000, transactions: [] },
+      { id: 20, nom: "Baptiste", prenom: "Katherine", phone: "509-3456-7809", nif: "001-123456-20", address: "492 Route de Kenscoff, Pétion-Ville", accountType: "pret", loanType: "Voiture", dateInscription: "2023-12-05", balance: -650000, transactions: [] },
+      { id: 21, nom: "Noël", prenom: "Jean-Robert", phone: "509-4456-7890", nif: "001-223456-1", address: "111 Rue des Miracles, Port-au-Prince", accountType: "depot", loanType: "", dateInscription: "2023-01-10", balance: 150000, transactions: [] },
+      { id: 22, nom: "Charles", prenom: "Micheline", phone: "509-4456-7891", nif: "001-223456-2", address: "222 Avenue N, Pétion-Ville", accountType: "pret", loanType: "Terrain", dateInscription: "2023-02-15", balance: -500000, transactions: [] },
+      { id: 23, nom: "Fleurival", prenom: "Guerda", phone: "509-4456-7892", nif: "001-223456-3", address: "333 Delmas 95, Delmas", accountType: "depot", loanType: "", dateInscription: "2023-03-20", balance: 180000, transactions: [] },
+      { id: 24, nom: "Germain", prenom: "Wilfrid", phone: "509-4456-7893", nif: "001-223456-4", address: "444 Tabarre 41, Tabarre", accountType: "pret", loanType: "Maison", dateInscription: "2023-04-25", balance: -900000, transactions: [] },
+      { id: 25, nom: "Lamarre", prenom: "Yvette", phone: "509-4456-7894", nif: "001-223456-5", address: "555 Croix-des-Bouquets, Croix-des-Bouquets", accountType: "depot", loanType: "", dateInscription: "2023-05-30", balance: 220000, transactions: [] }
+    ];
+
+    let transactions = [
+      { id: 1, client: "Pierre Jean", type: "Dépôt", montant: 250000, date: "2023-10-15", statut: "Complété" },
+      { id: 2, client: "Marie Joseph", type: "Prêt", montant: 750000, date: "2023-10-14", statut: "En cours" },
+      { id: 3, client: "Marc Louis", type: "Remboursement", montant: 150000, date: "2023-10-13", statut: "Complété" },
+      { id: 4, client: "Paul Michel", type: "Retrait", montant: 100000, date: "2023-10-12", statut: "Complété" },
+      { id: 5, client: "Luc François", type: "Dépôt", montant: 450000, date: "2023-10-11", statut: "Complété" },
+      { id: 6, client: "Nadia Alexandre", type: "Prêt", montant: 450000, date: "2023-10-10", statut: "En cours" },
+      { id: 7, client: "Marc Ronald", type: "Retrait", montant: 80000, date: "2023-10-09", statut: "Complété" },
+      { id: 8, client: "Eva Wilson", type: "Dépôt", montant: 600000, date: "2023-10-08", statut: "Complété" },
+      { id: 9, client: "Louis Daniel", type: "Remboursement", montant: 120000, date: "2023-10-07", statut: "Complété" },
+      { id: 10, client: "Claire Patrick", type: "Prêt", montant: 550000, date: "2023-10-06", statut: "En cours" },
+      { id: 11, client: "Sophie Emmanuel", type: "Dépôt", montant: 180000, date: "2023-10-05", statut: "Complété" },
+      { id: 12, client: "Isabelle Roosevelt", type: "Retrait", montant: 70000, date: "2023-10-04", statut: "Complété" },
+      { id: 13, client: "Philippe Widley", type: "Dépôt", montant: 230000, date: "2023-10-03", statut: "Complété" },
+      { id: 14, client: "Catherine Woossel", type: "Remboursement", montant: 200000, date: "2023-10-02", statut: "Complété" },
+      { id: 15, client: "Nathalie Jean-Baptiste", type: "Prêt", montant: 800000, date: "2023-10-01", statut: "En cours" },
+      { id: 16, client: "Sandra Saint-Vil", type: "Dépôt", montant: 260000, date: "2023-09-30", statut: "Complété" },
+      { id: 17, client: "David Dorvil", type: "Retrait", montant: 150000, date: "2023-09-29", statut: "Complété" },
+      { id: 18, client: "Valérie Laurent", type: "Prêt", montant: 700000, date: "2023-09-28", statut: "En cours" },
+      { id: 19, client: "Roseline Dupont", type: "Dépôt", montant: 210000, date: "2023-09-27", statut: "Complété" },
+      { id: 20, client: "Katherine Baptiste", type: "Remboursement", montant: 180000, date: "2023-09-26", statut: "Complété" }
+    ];
+
+    /* =========================
+       Format numbers function
+       ========================= */
+    function formatNumber(num) {
+      if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'M';
+      } else if (num >= 1000) {
+        return (num / 1000).toFixed(0) + 'K';
+      } else {
+        return num.toString();
+      }
+    }
+
+    /* =========================
+       DOM elements
+       ========================= */
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('overlay');
+    const closeSidebar = document.getElementById('closeSidebar');
+    const themeToggle = document.getElementById('themeToggle');
+
+    const navLinks = document.querySelectorAll('.nav-link');
+    const pageSections = document.querySelectorAll('.page-section');
+
+    const exportReportBtn = document.getElementById('exportReportBtn');
+    const newOperationBtn = document.getElementById('newOperationBtn');
+    const newOperationModal = document.getElementById('newOperationModal');
+    const closeModal = document.getElementById('closeModal');
+    const cancelModal = document.getElementById('cancelModal');
+    const confirmModal = document.getElementById('confirmModal');
+    const modalOperationType = document.getElementById('modalOperationType');
+    const modalClientSelect = document.getElementById('modalClientSelect');
+    const modalAmount = document.getElementById('modalAmount');
+    const modalDuration = document.getElementById('modalDuration');
+    const modalBienContainer = document.getElementById('modalBienContainer');
+    const modalDurationContainer = document.getElementById('modalDurationContainer');
+    const modalClientForm = document.getElementById('modalClientForm');
+    const modalOperationDetails = document.getElementById('modalOperationDetails');
+
+    const clientsTableBody = document.getElementById('clientsTableBody');
+    const transactionsTableBody = document.getElementById('transactionsTableBody');
+    const searchClient = document.getElementById('searchClient');
+    const searchTransaction = document.getElementById('searchTransaction');
+
+    const resultDepot = document.getElementById('resultDepot');
+    const depotResultText = document.getElementById('depotResultText');
+    const resultPret = document.getElementById('resultPret');
+    const pretResultText = document.getElementById('pretResultText');
+
+    /* =========================
+       Initialization
+       ========================= */
+    document.addEventListener('DOMContentLoaded', function() {
+      // Load data from localStorage first
+      loadInitialData();
+      
+      // Sidebar default state on mobile
+      if (window.innerWidth <= 900) {
+        sidebar.classList.add('hidden');
+        document.body.classList.remove('menu-open');
+      } else {
+        sidebar.classList.remove('hidden');
+        document.body.classList.remove('menu-open');
+      }
+
+      // Load initial data
+      populateClientsTable(clients);
+      populateTransactionsTable(transactions);
+      populateModalClientSelect();
+      initCharts();
+      setupEventListeners();
+      updateDashboardStats();
+    });
+
+    // Load initial data to localStorage
+    function loadInitialData() {
+      const savedClients = localStorage.getItem('uls_clients');
+      const savedTransactions = localStorage.getItem('uls_transactions');
+      
+      if (savedClients) {
+        clients = JSON.parse(savedClients);
+      } else {
+        localStorage.setItem('uls_clients', JSON.stringify(clients));
+      }
+      
+      if (savedTransactions) {
+        transactions = JSON.parse(savedTransactions);
+      } else {
+        localStorage.setItem('uls_transactions', JSON.stringify(transactions));
+      }
+    }
+
+    // Update dashboard statistics
+    function updateDashboardStats() {
+      // Update client count
+      document.getElementById('totalClients').textContent = clients.length;
+      document.getElementById('sidebarClients').textContent = clients.length + '+';
+      
+      // Calculate total capital (sum of positive balances)
+      const totalCapital = clients.reduce((sum, client) => {
+        return client.balance > 0 ? sum + client.balance : sum;
+      }, 0);
+      document.getElementById('totalCapital').textContent = formatNumber(totalCapital) + ' G';
+      document.getElementById('sidebarCapital').textContent = formatNumber(totalCapital) + ' G';
+      
+      // Calculate active loans (count of clients with negative balance)
+      const activeLoans = clients.filter(client => client.balance < 0).length;
+      document.getElementById('totalLoans').textContent = activeLoans;
+      
+      // Calculate profits (sum of interest from loans)
+      const totalProfits = transactions.reduce((sum, transaction) => {
+        if (transaction.type === 'Prêt') {
+          return sum + (transaction.montant * 0.08); // 8% interest
+        }
+        return sum;
+      }, 0);
+      document.getElementById('totalProfits').textContent = formatNumber(totalProfits) + ' G';
+      
+      // Update recent activities
+      updateRecentActivities();
+    }
+
+    // Update recent activities
+    function updateRecentActivities() {
+      const recentActivities = document.getElementById('recentActivities');
+      recentActivities.innerHTML = '';
+      
+      // Show last 5 transactions
+      const recentTransactions = transactions.slice(0, 5);
+      
+      recentTransactions.forEach(transaction => {
+        const li = document.createElement('li');
+        li.style.display = 'flex; gap:12px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(0,0,0,0.03)';
+        
+        let iconColor = '#10b981';
+        let iconClass = 'fa-arrow-down';
+        
+        if (transaction.type === 'Prêt') {
+          iconColor = 'var(--primary-2)';
+          iconClass = 'fa-hand-holding-usd';
+        } else if (transaction.type === 'Retrait') {
+          iconColor = '#ef4444';
+          iconClass = 'fa-arrow-up';
+        } else if (transaction.type === 'Remboursement') {
+          iconColor = '#3b82f6';
+          iconClass = 'fa-sync-alt';
+        }
+        
+        li.innerHTML = `
+          <div style="background:${iconColor}; width:45px;height:45px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:white"><i class="fas ${iconClass}"></i></div>
+          <div style="flex:1"><strong>${transaction.type}</strong><div style="color:var(--muted)">${transaction.client} - ${transaction.date}</div></div>
+          <div style="font-weight:700; color:${transaction.type === 'Dépôt' || transaction.type === 'Remboursement' ? '#10b981' : 'var(--primary-2)'}">${transaction.type === 'Dépôt' || transaction.type === 'Remboursement' ? '+' : '-'}${transaction.montant.toLocaleString()} G</div>
+        `;
+        
+        recentActivities.appendChild(li);
+      });
+    }
+
+    /* -------------------------
+       Populate tables
+       ------------------------- */
+    function populateClientsTable(clientsData) {
+      clientsTableBody.innerHTML = '';
+      clientsData.forEach(client => {
+        const row = document.createElement('tr');
+        const balanceSign = client.balance < 0 ? '-' : '+';
+        const balanceAbs = Math.abs(client.balance).toLocaleString();
+        row.innerHTML = `
+          <td>${client.nom}</td>
+          <td>${client.prenom}</td>
+          <td>${client.phone}</td>
+          <td>${client.nif}</td>
+          <td>${client.accountType === 'depot' ? 'Dépôt' : 'Prêt'}</td>
+          <td>${client.loanType || '-'}</td>
+          <td style="font-weight:700; color:${client.balance < 0 ? '#ef4444' : '#10b981'}">${balanceSign} ${balanceAbs} G</td>
+          <td>
+            <button class="btn btn-outline" onclick="viewClientDetails(${client.id})"><i class="fas fa-eye"></i></button>
+          </td>
+        `;
+        clientsTableBody.appendChild(row);
+      });
+      populateModalClientSelect();
+    }
+
+    function populateTransactionsTable(transactionsData) {
+      transactionsTableBody.innerHTML = '';
+      transactionsData.forEach(transaction => {
+        const row = document.createElement('tr');
+        let badgeClass = 'badge-success';
+        if (transaction.statut === 'En cours') badgeClass = 'badge-warning';
+        if (transaction.statut === 'Échec') badgeClass = 'badge-danger';
+        row.innerHTML = `
+          <td>${transaction.id}</td>
+          <td>${transaction.client}</td>
+          <td>${transaction.type}</td>
+          <td>${transaction.montant.toLocaleString()} G</td>
+          <td>${transaction.date}</td>
+          <td><span class="${badgeClass}">${transaction.statut}</span></td>
+        `;
+        transactionsTableBody.appendChild(row);
+      });
+    }
+
+    function populateModalClientSelect(){
+      if (!modalClientSelect) return;
+      modalClientSelect.innerHTML = '<option value="">Sélectionnez un client</option>';
+      clients.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `${c.prenom} ${c.nom}`;
+        modalClientSelect.appendChild(opt);
+      });
+    }
+
+    /* -------------------------
+       Charts (responsive)
+       ------------------------- */
+    function initCharts() {
+      const activityCtx = document.getElementById('activityChart').getContext('2d');
+      window.activityChart = new Chart(activityCtx, {
+        type: 'line',
+        data: {
+          labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
+          datasets: [
+            {
+              label: 'Dépôts',
+              data: [250000, 320000, 280000, 450000, 380000, 520000, 480000, 420000, 550000, 600000, 580000, 620000],
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16, 185, 129, 0.12)',
+              tension: 0.35,
+              fill: true
+            },
+            {
+              label: 'Prêts',
+              data: [180000, 220000, 190000, 300000, 280000, 350000, 320000, 400000, 450000, 500000, 480000, 520000],
+              borderColor: '#f59e0b',
+              backgroundColor: 'rgba(245, 158, 11, 0.12)',
+              tension: 0.35,
+              fill: true
+            },
+            {
+              label: 'Retraits',
+              data: [80000, 120000, 100000, 150000, 140000, 180000, 160000, 200000, 220000, 250000, 230000, 280000],
+              borderColor: '#ef4444',
+              backgroundColor: 'rgba(239, 68, 68, 0.12)',
+              tension: 0.35,
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'top' } },
+          scales: { y: { beginAtZero: true, ticks: { callback: (v) => formatNumber(v) + ' G' } } }
+        }
+      });
+
+      const operationCtx = document.getElementById('operationDistributionChart').getContext('2d');
+      window.operationChart = new Chart(operationCtx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Dépôts', 'Prêts', 'Retraits', 'Remboursements'],
+          datasets: [{ 
+            data: [45, 30, 15, 10], 
+            backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#3b82f6'] 
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+      });
+    }
+
+    /* -------------------------
+       Events
+       ------------------------- */
+    function setupEventListeners() {
+      // Navigation links
+      navLinks.forEach(link => {
+        link.addEventListener('click', function(e){
+          e.preventDefault();
+          navLinks.forEach(n => n.classList.remove('active'));
+          this.classList.add('active');
+          const target = this.getAttribute('data-page');
+          pageSections.forEach(s => { s.style.display = s.id === target ? '' : 'none'; });
+
+          // Close sidebar on mobile
+          if (window.innerWidth <= 900) {
+            sidebar.classList.add('hidden');
+            document.body.classList.remove('menu-open');
+          }
+          // allow Chart.js to recalc
+          setTimeout(()=>{ window.activityChart?.resize(); window.operationChart?.resize(); }, 260);
+        });
+      });
+
+      // Menu toggle
+      menuToggle?.addEventListener('click', () => {
+        sidebar.classList.toggle('hidden');
+        if (!sidebar.classList.contains('hidden')) document.body.classList.add('menu-open');
+        else document.body.classList.remove('menu-open');
+        setTimeout(()=>{ window.activityChart?.resize(); window.operationChart?.resize(); }, 300);
+      });
+
+      // Close via top X button
+      closeSidebar?.addEventListener('click', () => {
+        sidebar.classList.add('hidden');
+        document.body.classList.remove('menu-open');
+      });
+
+      // Clicking overlay closes menu
+      overlay.addEventListener('click', () => {
+        sidebar.classList.add('hidden');
+        document.body.classList.remove('menu-open');
+      });
+
+      // Theme toggle
+      themeToggle?.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        const i = themeToggle.querySelector('i');
+        if (i) {
+          if (document.body.classList.contains('dark')) { i.classList.remove('fa-moon'); i.classList.add('fa-sun'); }
+          else { i.classList.remove('fa-sun'); i.classList.add('fa-moon'); }
+        }
+      });
+
+      // Modal open/close
+      newOperationBtn?.addEventListener('click', ()=> {
+        newOperationModal.style.display = 'flex';
+        modalOperationType.value = 'depot';
+        updateModalForm();
+      });
+      closeModal?.addEventListener('click', ()=> newOperationModal.style.display = 'none');
+      cancelModal?.addEventListener('click', ()=> newOperationModal.style.display = 'none');
+      newOperationModal?.addEventListener('click', (e)=> { if (e.target === newOperationModal) newOperationModal.style.display='none'; });
+
+      // Modal operation change
+      modalOperationType?.addEventListener('change', updateModalForm);
+
+      // Confirm modal
+      confirmModal?.addEventListener('click', handleModalSubmit);
+
+      // Search filters
+      if (searchClient) searchClient.addEventListener('input', function(){
+        const term = (this.value||'').toLowerCase();
+        const filtered = clients.filter(c => 
+          c.nom.toLowerCase().includes(term) || 
+          c.prenom.toLowerCase().includes(term) ||
+          c.phone.includes(term) ||
+          c.nif.includes(term)
+        );
+        populateClientsTable(filtered);
+      });
+      if (searchTransaction) searchTransaction.addEventListener('input', function(){
+        const term = (this.value||'').toLowerCase();
+        const filtered = transactions.filter(t => 
+          t.client.toLowerCase().includes(term) || 
+          t.type.toLowerCase().includes(term) || 
+          t.statut.toLowerCase().includes(term)
+        );
+        populateTransactionsTable(filtered);
+      });
+
+      // CSV export
+      exportReportBtn?.addEventListener('click', () => {
+        exportCSV('clients.csv', convertClientsToCSV(clients));
+        exportCSV('transactions.csv', convertTransactionsToCSV(transactions));
+        alert('Téléchargement démarré : clients.csv et transactions.csv');
+      });
+
+      // Resize charts when sidebar toggles
+      const obs = new MutationObserver(()=> { setTimeout(()=>{ window.activityChart?.resize(); window.operationChart?.resize(); }, 220); });
+      obs.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+
+      // Add Client Modal
+      const addClientBtn = document.getElementById('addClientBtn');
+      const addClientModal = document.getElementById('addClientModal');
+      const closeAddClientModal = document.getElementById('closeAddClientModal');
+      const cancelAddClient = document.getElementById('cancelAddClient');
+      const submitAddClient = document.getElementById('submitAddClient');
+
+      addClientBtn.addEventListener('click', () => {
+        addClientModal.style.display = 'flex';
+      });
+
+      closeAddClientModal.addEventListener('click', () => {
+        addClientModal.style.display = 'none';
+      });
+
+      cancelAddClient.addEventListener('click', () => {
+        addClientModal.style.display = 'none';
+      });
+
+      submitAddClient.addEventListener('click', addClientFromModal);
+
+      // Close client details modal
+      const closeClientModal = document.getElementById('closeClientModal');
+      closeClientModal.addEventListener('click', () => {
+        document.getElementById('clientDetailsModal').style.display = 'none';
+      });
+
+      // Close receipt modal
+      const closeReceiptModal = document.getElementById('closeReceiptModal');
+      closeReceiptModal.addEventListener('click', () => {
+        document.getElementById('receiptModal').style.display = 'none';
+      });
+    }
+
+    // Update modal form based on operation type
+    function updateModalForm() {
+      const operationType = modalOperationType.value;
+      
+      if (operationType === 'add_client') {
+        modalClientForm.style.display = 'block';
+        modalOperationDetails.style.display = 'none';
+        modalDurationContainer.style.display = 'none';
+        modalBienContainer.style.display = 'none';
+        confirmModal.textContent = 'Ajouter le Client';
+      } else {
+        modalClientForm.style.display = 'none';
+        modalOperationDetails.style.display = 'block';
+        modalClientSelect.style.display = 'block';
+        confirmModal.textContent = 'Confirmer';
+        
+        // Show/hide fields based on operation type
+        if (operationType === 'pret') {
+          modalBienContainer.style.display = 'block';
+          modalDurationContainer.style.display = 'block';
+          modalDuration.placeholder = 'Durée en mois';
+        } else if (operationType === 'depot') {
+          modalBienContainer.style.display = 'none';
+          modalDurationContainer.style.display = 'block';
+          modalDuration.placeholder = 'Durée en années';
+        } else {
+          modalBienContainer.style.display = 'none';
+          modalDurationContainer.style.display = 'none';
+        }
+      }
+    }
+
+    // Handle modal submit based on operation type
+    function handleModalSubmit() {
+      const operationType = modalOperationType.value;
+      
+      if (operationType === 'add_client') {
+        addClientFromNewOperationModal();
+      } else {
+        submitOperationFromModal(operationType);
+      }
+    }
+
+    // Add client from new operation modal
+    function addClientFromNewOperationModal() {
+      const nom = document.getElementById('modalClientNom').value;
+      const prenom = document.getElementById('modalClientPrenom').value;
+      const phone = document.getElementById('modalClientPhone').value;
+      const nif = document.getElementById('modalClientNif').value;
+      const address = document.getElementById('modalClientAddress').value;
+      const accountType = document.getElementById('modalClientAccountType').value;
+      const loanType = accountType === 'pret' ? document.getElementById('modalClientLoanType').value : '';
+      const amount = parseFloat(document.getElementById('modalClientAmount').value) || 0;
+      
+      if (!nom || !prenom || !phone || !nif || !address) {
+        alert('Veuillez remplir tous les champs obligatoires (*)');
+        return;
+      }
+      
+      const newClient = {
+        id: Date.now(),
+        nom: nom,
+        prenom: prenom,
+        phone: phone,
+        nif: nif,
+        address: address,
+        accountType: accountType,
+        loanType: loanType,
+        dateInscription: new Date().toLocaleDateString('fr-FR'),
+        balance: accountType === 'pret' ? -amount : amount,
+        transactions: []
+      };
+      
+      // Add to clients array
+      clients.push(newClient);
+      
+      // Save to localStorage
+      saveToLocalStorage();
+      
+      // Add to table
+      populateClientsTable(clients);
+      
+      // Create initial transaction
+      const transaction = {
+        id: Date.now(),
+        client: `${prenom} ${nom}`,
+        type: accountType === 'pret' ? 'Prêt' : 'Dépôt',
+        montant: amount,
+        date: new Date().toLocaleDateString('fr-FR'),
+        statut: 'Complété'
+      };
+      
+      transactions.unshift(transaction);
+      saveToLocalStorage();
+      populateTransactionsTable(transactions);
+      
+      // Clear form and close modal
+      document.getElementById('modalClientNom').value = '';
+      document.getElementById('modalClientPrenom').value = '';
+      document.getElementById('modalClientPhone').value = '';
+      document.getElementById('modalClientNif').value = '';
+      document.getElementById('modalClientAddress').value = '';
+      document.getElementById('modalClientAmount').value = '';
+      newOperationModal.style.display = 'none';
+      
+      // Update dashboard
+      updateDashboardStats();
+      
+      alert('Client ajouté avec succès!');
+    }
+
+    // Submit operation from modal
+    function submitOperationFromModal(operationType) {
+      const clientId = modalClientSelect.value;
+      const amount = parseFloat(modalAmount.value);
+      const duration = modalDuration.value;
+      const bienType = operationType === 'pret' ? document.getElementById('modalBienType').value : '';
+      
+      if (!clientId || isNaN(amount) || amount <= 0) {
+        alert('Sélectionnez client et montant valides.');
+        return;
+      }
+      
+      const client = clients.find(c => c.id == clientId);
+      if (!client) {
+        alert('Client non trouvé.');
+        return;
+      }
+      
+      let txType = '';
+      let statut = 'Complété';
+      
+      switch(operationType) {
+        case 'depot':
+          txType = 'Dépôt';
+          client.balance += amount;
+          break;
+        case 'pret':
+          txType = 'Prêt';
+          client.balance -= amount;
+          statut = 'En cours';
+          break;
+        case 'retrait':
+          txType = 'Retrait';
+          if (client.balance < amount) {
+            alert('Solde insuffisant pour effectuer ce retrait.');
+            return;
+          }
+          client.balance -= amount;
+          break;
+        case 'remboursement':
+          txType = 'Remboursement';
+          client.balance += amount;
+          break;
+      }
+      
+      const tx = {
+        id: transactions.length + 1,
+        client: `${client.prenom} ${client.nom}`,
+        type: txType,
+        montant: amount,
+        date: new Date().toLocaleDateString('fr-FR'),
+        statut: statut
+      };
+      
+      transactions.unshift(tx);
+      populateClientsTable(clients);
+      populateTransactionsTable(transactions);
+      updateDashboardStats();
+      saveToLocalStorage();
+      
+      alert(`Opération ${txType} de ${amount.toLocaleString()} G enregistrée pour ${client.prenom} ${client.nom}.`);
+      newOperationModal.style.display = 'none';
+      modalAmount.value = '';
+      modalDuration.value = '';
+    }
+
+    // Save to localStorage
+    function saveToLocalStorage() {
+      localStorage.setItem('uls_clients', JSON.stringify(clients));
+      localStorage.setItem('uls_transactions', JSON.stringify(transactions));
+    }
+
+    // Toggle loan type field based on account type
+    function toggleLoanType() {
+      const accountType = document.getElementById('clientAccountType').value;
+      const loanTypeContainer = document.getElementById('loanTypeContainer');
+      
+      if (accountType === 'pret') {
+        loanTypeContainer.classList.remove('hidden-field');
+      } else {
+        loanTypeContainer.classList.add('hidden-field');
+      }
+    }
+
+    // Toggle modal loan type field based on account type
+    function toggleModalLoanType() {
+      const accountType = document.getElementById('modalClientAccountType').value;
+      const loanTypeContainer = document.getElementById('modalLoanTypeContainer');
+      
+      if (accountType === 'pret') {
+        loanTypeContainer.classList.remove('hidden-field');
+      } else {
+        loanTypeContainer.classList.add('hidden-field');
+      }
+    }
+
+    // Add client from modal
+    function addClientFromModal() {
+      const nom = document.getElementById('clientNom').value;
+      const prenom = document.getElementById('clientPrenom').value;
+      const phone = document.getElementById('clientPhone').value;
+      const nif = document.getElementById('clientNif').value;
+      const address = document.getElementById('clientAddress').value;
+      const accountType = document.getElementById('clientAccountType').value;
+      const loanType = accountType === 'pret' ? document.getElementById('clientLoanType').value : '';
+      const amount = parseFloat(document.getElementById('clientAmount').value) || 0;
+      
+      if (!nom || !prenom || !phone || !nif || !address) {
+        alert('Veuillez remplir tous les champs obligatoires (*)');
+        return;
+      }
+      
+      const newClient = {
+        id: Date.now(),
+        nom: nom,
+        prenom: prenom,
+        phone: phone,
+        nif: nif,
+        address: address,
+        accountType: accountType,
+        loanType: loanType,
+        dateInscription: new Date().toLocaleDateString('fr-FR'),
+        balance: accountType === 'pret' ? -amount : amount,
+        transactions: []
+      };
+      
+      // Add to clients array
+      clients.push(newClient);
+      
+      // Save to localStorage
+      saveToLocalStorage();
+      
+      // Add to table
+      populateClientsTable(clients);
+      
+      // Create initial transaction
+      const transaction = {
+        id: Date.now(),
+        client: `${prenom} ${nom}`,
+        type: accountType === 'pret' ? 'Prêt' : 'Dépôt',
+        montant: amount,
+        date: new Date().toLocaleDateString('fr-FR'),
+        statut: 'Complété'
+      };
+      
+      transactions.unshift(transaction);
+      saveToLocalStorage();
+      populateTransactionsTable(transactions);
+      
+      // Clear form and close modal
+      document.getElementById('clientNom').value = '';
+      document.getElementById('clientPrenom').value = '';
+      document.getElementById('clientPhone').value = '';
+      document.getElementById('clientNif').value = '';
+      document.getElementById('clientAddress').value = '';
+      document.getElementById('clientAmount').value = '';
+      document.getElementById('addClientModal').style.display = 'none';
+      
+      // Update dashboard
+      updateDashboardStats();
+      
+      alert('Client ajouté avec succès!');
+    }
+
+    // View client details
+    function viewClientDetails(clientId) {
+      const client = clients.find(c => c.id === clientId);
+      
+      if (!client) return;
+      
+      // Populate client details
+      document.getElementById('detailNom').textContent = client.nom;
+      document.getElementById('detailPrenom').textContent = client.prenom;
+      document.getElementById('detailPhone').textContent = client.phone;
+      document.getElementById('detailNif').textContent = client.nif;
+      document.getElementById('detailAddress').textContent = client.address;
+      document.getElementById('detailAccountType').textContent = client.accountType === 'depot' ? 'Dépôt' : 'Prêt';
+      document.getElementById('detailLoanType').textContent = client.loanType || '-';
+      document.getElementById('detailDate').textContent = client.dateInscription;
+      document.getElementById('detailBalance').textContent = `${client.balance.toLocaleString('fr-FR')} G`;
+      
+      // Populate transactions for this client
+      const clientTransactions = transactions.filter(t => t.client === `${client.prenom} ${client.nom}`);
+      const transactionsBody = document.getElementById('clientTransactionsBody');
+      transactionsBody.innerHTML = '';
+      
+      clientTransactions.forEach(transaction => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${transaction.date}</td>
+          <td>${transaction.type}</td>
+          <td>${transaction.montant.toLocaleString('fr-FR')} G</td>
+          <td>${transaction.statut}</td>
+        `;
+        transactionsBody.appendChild(row);
+      });
+      
+      // Show modal
+      document.getElementById('clientDetailsModal').style.display = 'flex';
+    }
+
+    // Show receipt preview
+    function showReceipt(type) {
+      let clientName = '';
+      let amount = 0;
+      let duration = '';
+      let bienType = '';
+      
+      if (type === 'depot') {
+        clientName = document.getElementById('depotNom').value + ' ' + document.getElementById('depotPrenom').value;
+        amount = parseFloat(document.getElementById('montantDepot').value) || 0;
+        duration = document.getElementById('dureeDepot').value + ' an(s)';
+      } else if (type === 'pret') {
+        clientName = document.getElementById('pretNom').value + ' ' + document.getElementById('pretPrenom').value;
+        amount = parseFloat(document.getElementById('montantPret').value) || 0;
+        duration = document.getElementById('dureePret').value + ' mois';
+        bienType = document.getElementById('bienType').value;
+      } else if (type === 'retrait') {
+        clientName = document.getElementById('retraitNom').value + ' ' + document.getElementById('retraitPrenom').value;
+        amount = parseFloat(document.getElementById('montantRetrait').value) || 0;
+        duration = '-';
+      }
+      
+      if (!clientName.trim()) {
+        alert('Veuillez d\'abord remplir les informations du client');
+        return;
+      }
+      
+      if (amount <= 0) {
+        alert('Veuillez entrer un montant valide');
+        return;
+      }
+      
+      // No fees calculation - removed as requested
+      const total = amount;
+      
+      // Populate receipt
+      document.getElementById('receiptDate').textContent = new Date().toLocaleDateString('fr-FR');
+      document.getElementById('receiptType').textContent = type.charAt(0).toUpperCase() + type.slice(1);
+      document.getElementById('receiptClient').textContent = clientName;
+      document.getElementById('receiptAmount').textContent = amount.toLocaleString('fr-FR') + ' G';
+      document.getElementById('receiptTotal').textContent = total.toLocaleString('fr-FR') + ' G';
+      document.getElementById('receiptDuration').textContent = duration;
+      
+      // Show/hide bien type
+      if (type === 'pret') {
+        document.getElementById('receiptBienRow').style.display = 'flex';
+        document.getElementById('receiptBien').textContent = bienType;
+      } else {
+        document.getElementById('receiptBienRow').style.display = 'none';
+      }
+      
+      // Show receipt modal
+      document.getElementById('receiptModal').style.display = 'flex';
+    }
+
+    /* -------------------------
+       CSV helpers
+       ------------------------- */
+    function convertClientsToCSV(arr) {
+      const headers = ['id','nom','prenom','phone','nif','address','accountType','loanType','dateInscription','balance'];
+      const lines = arr.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(','));
+      return headers.join(',') + '\n' + lines.join('\n');
+    }
+    function convertTransactionsToCSV(arr) {
+      const headers = ['id','client','type','montant','date','statut'];
+      const lines = arr.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(','));
+      return headers.join(',') + '\n' + lines.join('\n');
+    }
+    function exportCSV(filename, content) {
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    /* -------------------------
+       Deposit / Loan / Retrait functions (kept unchanged)
+       ------------------------- */
+    function calcDepot() {
+      const montant = parseFloat(document.getElementById('montantDepot').value);
+      const duree = parseInt(document.getElementById('dureeDepot').value);
+      if (isNaN(montant) || montant <= 0) { alert("Veuillez entrer un montant valide."); return; }
+      const tauxInteret = 0.05;
+      const interet = montant * tauxInteret * duree;
+      const montantFinal = montant + interet;
+      document.getElementById('depotResultText').innerHTML = `
+        <strong>Montant initial:</strong> ${montant.toLocaleString()} G<br>
+        <strong>Durée:</strong> ${duree} an(s)<br>
+        <strong>Taux d'intérêt:</strong> 5% par an<br>
+        <strong>Intérêt total:</strong> ${interet.toLocaleString()} G<br>
+        <strong>Montant final:</strong> ${montantFinal.toLocaleString()} G
+      `;
+      resultDepot.classList.add('active'); resultDepot.style.display = 'block';
+    }
+
+    function submitDepot() {
+      const nom = document.getElementById('depotNom').value.trim();
+      const prenom = document.getElementById('depotPrenom').value.trim();
+      const montant = parseFloat(document.getElementById('montantDepot').value);
+      if (!nom || !prenom || isNaN(montant) || montant <= 0) { alert("Veuillez remplir tous les champs correctement."); return; }
+      let client = clients.find(c => c.nom === nom && c.prenom === prenom);
+      if (!client) {
+        client = { 
+          id: Date.now(), 
+          nom, 
+          prenom, 
+          phone: "", 
+          nif: "", 
+          address: "", 
+          accountType: "depot", 
+          loanType: "", 
+          dateInscription: new Date().toLocaleDateString('fr-FR'), 
+          balance: 0,
+          transactions: []
+        };
+        clients.push(client);
+      }
+      client.balance += montant;
+      const newTransaction = { 
+        id: transactions.length + 1, 
+        client: `${prenom} ${nom}`, 
+        type: "Dépôt", 
+        montant, 
+        date: new Date().toLocaleDateString('fr-FR'), 
+        statut: "Complété" 
+      };
+      transactions.unshift(newTransaction);
+      populateClientsTable(clients);
+      populateTransactionsTable(transactions);
+      updateDashboardStats();
+      saveToLocalStorage();
+      alert(`Dépôt de ${montant.toLocaleString()} G effectué avec succès pour ${prenom} ${nom}.`);
+      document.getElementById('depotNom').value = ''; 
+      document.getElementById('depotPrenom').value = ''; 
+      document.getElementById('montantDepot').value = ''; 
+      resultDepot.classList.remove('active'); 
+      resultDepot.style.display = 'none';
+    }
+
+    function calcPret() {
+      const montant = parseFloat(document.getElementById('montantPret').value);
+      const duree = parseInt(document.getElementById('dureePret').value);
+      if (isNaN(montant) || montant <= 0) { alert("Veuillez entrer un montant valide."); return; }
+      const tauxInteret = 0.08;
+      const interet = montant * tauxInteret * (duree / 12);
+      const montantTotal = montant + interet;
+      const mensualite = montantTotal / duree;
+      document.getElementById('pretResultText').innerHTML = `
+        <strong>Montant du prêt:</strong> ${montant.toLocaleString()} G<br>
+        <strong>Durée:</strong> ${duree} mois<br>
+        <strong>Taux d'intérêt:</strong> 8% par an<br>
+        <strong>Intérêt total:</strong> ${interet.toLocaleString()} G<br>
+        <strong>Montant total à rembourser:</strong> ${montantTotal.toLocaleString()} G<br>
+        <strong>Mensualité:</strong> ${mensualite.toLocaleString()} G
+      `;
+      resultPret.classList.add('active'); resultPret.style.display = 'block';
+    }
+
+    function submitPret() {
+      const nom = document.getElementById('pretNom').value.trim();
+      const prenom = document.getElementById('pretPrenom').value.trim();
+      const montant = parseFloat(document.getElementById('montantPret').value);
+      const bienType = document.getElementById('bienType').value;
+      if (!nom || !prenom || isNaN(montant) || montant <= 0) { alert("Veuillez remplir tous les champs correctement."); return; }
+      let client = clients.find(c => c.nom === nom && c.prenom === prenom);
+      if (!client) {
+        client = { 
+          id: Date.now(), 
+          nom, 
+          prenom, 
+          phone: "", 
+          nif: "", 
+          address: "", 
+          accountType: "pret", 
+          loanType: bienType, 
+          dateInscription: new Date().toLocaleDateString('fr-FR'), 
+          balance: 0,
+          transactions: []
+        };
+        clients.push(client);
+      }
+      client.balance -= montant;
+      const newTransaction = { 
+        id: transactions.length + 1, 
+        client: `${prenom} ${nom}`, 
+        type: "Prêt", 
+        montant, 
+        date: new Date().toLocaleDateString('fr-FR'), 
+        statut: "En cours" 
+      };
+      transactions.unshift(newTransaction);
+      populateClientsTable(clients);
+      populateTransactionsTable(transactions);
+      updateDashboardStats();
+      saveToLocalStorage();
+      alert(`Prêt de ${montant.toLocaleString()} G accordé avec succès à ${prenom} ${nom}.`);
+      document.getElementById('pretNom').value = ''; 
+      document.getElementById('pretPrenom').value = ''; 
+      document.getElementById('montantPret').value = ''; 
+      resultPret.classList.remove('active'); 
+      resultPret.style.display = 'none';
+    }
+
+    function submitRetrait() {
+      const nom = document.getElementById('retraitNom').value.trim();
+      const prenom = document.getElementById('retraitPrenom').value.trim();
+      const montant = parseFloat(document.getElementById('montantRetrait').value);
+      const motif = document.getElementById('motifRetrait').value;
+      if (!nom || !prenom || isNaN(montant) || montant <= 0) { alert("Veuillez remplir tous les champs correctement."); return; }
+      const client = clients.find(c => c.nom === nom && c.prenom === prenom);
+      if (!client) { alert("Client non trouvé. Vérifiez le nom et prénom."); return; }
+      if (client.balance < montant) { alert("Solde insuffisant pour effectuer ce retrait."); return; }
+      // No fees calculation - removed as requested
+      client.balance -= montant;
+      const newTransaction = { 
+        id: transactions.length + 1, 
+        client: `${prenom} ${nom}`, 
+        type: "Retrait", 
+        montant, 
+        date: new Date().toLocaleDateString('fr-FR'), 
+        statut: "Complété" 
+      };
+      transactions.unshift(newTransaction);
+      populateClientsTable(clients);
+      populateTransactionsTable(transactions);
+      updateDashboardStats();
+      saveToLocalStorage();
+      alert(`Retrait de ${montant.toLocaleString()} G effectué avec succès pour ${prenom} ${nom}.`);
+      document.getElementById('retraitNom').value = ''; 
+      document.getElementById('retraitPrenom').value = ''; 
+      document.getElementById('montantRetrait').value = '';
+    }
+  </script>
+</body>
+</html>
